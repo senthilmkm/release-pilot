@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Release Pilot — Roadmap</title>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --border: #e3e6ee;
+    --text: #1a1d24;
+    --muted: #5b6373;
+    --accent: #2e6cf3;
+
+    --done-bg: #e8f6ec;     --done-fg: #1f7a35;
+    --partial-bg: #fff5d6;  --partial-fg: #8a6d00;
+    --pending-bg: #fde8e8;  --pending-fg: #a32626;
+    --future-bg: #ecebff;   --future-fg: #4839b3;
+    --inprog-bg: #e2effd;   --inprog-fg: #1b56b8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1117;
+      --panel: #151a23;
+      --border: #232a37;
+      --text: #e6e9ef;
+      --muted: #99a1b3;
+      --accent: #7aa6ff;
+
+      --done-bg: #14361e;     --done-fg: #6fdc8c;
+      --partial-bg: #3a2f0c;  --partial-fg: #f5c451;
+      --pending-bg: #3d1717;  --pending-fg: #ff8a8a;
+      --future-bg: #1f1c3d;   --future-fg: #b3a8ff;
+      --inprog-bg: #112846;   --inprog-fg: #82b5ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+                 Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+  header.page {
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+  h1 {
+    margin: 0 0 6px 0;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat .num {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .stat .lab {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  section {
+    margin-top: 36px;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.01em;
+  }
+  h2 .scope {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 13px;
+    margin-left: 8px;
+  }
+  .section-desc {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 14px 0;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  thead th {
+    text-align: left;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.name {
+    font-weight: 600;
+    width: 28%;
+  }
+  td.note {
+    color: var(--muted);
+  }
+  td.area {
+    width: 14%;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  td.status {
+    width: 14%;
+    white-space: nowrap;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .b-done    { background: var(--done-bg);    color: var(--done-fg); }
+  .b-partial { background: var(--partial-bg); color: var(--partial-fg); }
+  .b-pending { background: var(--pending-bg); color: var(--pending-fg); }
+  .b-future  { background: var(--future-bg);  color: var(--future-fg); }
+  .b-inprog  { background: var(--inprog-bg);  color: var(--inprog-fg); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .legend .badge { font-size: 11px; }
+
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: var(--bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  footer {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 48px;
+    text-align: center;
+  }
+
+  @media (max-width: 720px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    td.name { width: 40%; }
+    td.area { display: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header class="page">
+  <h1>Release Pilot — Roadmap</h1>
+  <div class="sub">iPhone home-screen companion for App Store releases &middot; Last updated Jun 11, 2026</div>
+
+  <div class="stats">
+    <div class="stat"><div class="num">10</div><div class="lab">V1 phases shipped</div></div>
+    <div class="stat"><div class="num">319</div><div class="lab">automated tests passing</div></div>
+    <div class="stat"><div class="num">6</div><div class="lab">V1 items still pending</div></div>
+    <div class="stat"><div class="num">9</div><div class="lab">V1.5 + V2 features queued</div></div>
+  </div>
+
+  <div class="legend">
+    <span class="badge b-done">Done</span>
+    <span class="badge b-partial">Partial</span>
+    <span class="badge b-inprog">In progress</span>
+    <span class="badge b-pending">Pending</span>
+    <span class="badge b-future">Future</span>
+  </div>
+</header>
+
+
+<!-- ============================================================== -->
+<section>
+  <h2>V1 (MVP) — Completed <span class="scope">code complete, tested locally</span></h2>
+  <p class="section-desc">Every item below has source, unit tests, and integration coverage via <code>npm run verify:cli</code>.</p>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">Project scaffolding + design system</td>
+          <td class="area">Phase 0</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Expo SDK 56 + RN 0.85, TypeScript strict, theme tokens, native module shells, tab + onboarding skeleton.</td>
+        </tr>
+        <tr>
+          <td class="name">Onboarding flow (8 screens) + ASC JWT + Keychain</td>
+          <td class="area">Phase 1</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">CryptoKit ES256 signer, Face ID-locked <code>.p8</code> storage, account verify-and-persist.</td>
+        </tr>
+        <tr>
+          <td class="name">Releases tab + app detail + timeline + SQLite cache</td>
+          <td class="area">Phase 2</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Live state badges across all 12 ASC states, version drill-down, stale-while-revalidate.</td>
+        </tr>
+        <tr>
+          <td class="name">Reviews inbox + reply composer + offline queue</td>
+          <td class="area">Phase 3</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Multi-app aggregated inbox, filter chips, canned templates, optimistic replies with airplane-mode recovery.</td>
+        </tr>
+        <tr>
+          <td class="name">Pre-submit checklist (10 rules)</td>
+          <td class="area">Phase 4</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Catches mechanical rejections before submission; each failure deep-links into the right ASC page.</td>
+        </tr>
+        <tr>
+          <td class="name">Releases widget (Home + Lock Screen, 4 sizes)</td>
+          <td class="area">Phase 5</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">WidgetKit; small / medium / large / accessoryRectangular. Shows app state badges from App Group store.</td>
+        </tr>
+        <tr>
+          <td class="name">Live Activity (Dynamic Island + Lock banner)</td>
+          <td class="area">Phase 5</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">ActivityKit; fires only while a build is in-flight (Submitted → In Review).</td>
+        </tr>
+        <tr>
+          <td class="name">Push proxy (Cloudflare Worker + APNs + D1)</td>
+          <td class="area">Phase 6</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">AES-GCM encrypted <code>.p8</code> at rest, 15-min cron poll, ES256 APNs JWT, 103 worker tests.</td>
+        </tr>
+        <tr>
+          <td class="name">RevenueCat paywall + 3 free-tier gates</td>
+          <td class="area">Phase 7</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">No hardcoded prices, free→monthly/yearly + cross-grade flows, restore + manage subscription, 14-day trial.</td>
+        </tr>
+        <tr>
+          <td class="name">Polish — skeletons, haptics, offline banner, diagnostics</td>
+          <td class="area">Phase 8</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Full a11y pass, 44pt touch targets audited, copy-to-clipboard diagnostics page.</td>
+        </tr>
+        <tr>
+          <td class="name">Edge-case hardening pass</td>
+          <td class="area">Phase 8.5</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Partial-account-failure, sub cancel-in-Settings detection, grace period banner, notif permission re-poll.</td>
+        </tr>
+        <tr>
+          <td class="name">RevenueCat REST v2 — per-app metrics overview</td>
+          <td class="area">Phase 9</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Per-app secret in Keychain, MRR + active subs + 28d revenue read on every refresh.</td>
+        </tr>
+        <tr>
+          <td class="name">Today tab — daily briefing (in-app)</td>
+          <td class="area">Phase 9</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Hero summary + per-app cards: state changes, new reviews, revenue trend, urgent reviews.</td>
+        </tr>
+        <tr>
+          <td class="name">7am local daily push → deeplink to Today tab</td>
+          <td class="area">Phase 9</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Self-healing schedule on cold start, idempotent re-registration.</td>
+        </tr>
+        <tr>
+          <td class="name">EAS dev-client build runs on real iPhone</td>
+          <td class="area">Build</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Build <code>56106af9</code> succeeded after fixing ActivityKit cross-target duplication. App launches, 4 tabs render.</td>
+        </tr>
+        <tr>
+          <td class="name">CLI integration tests (14 phases)</td>
+          <td class="area">QA</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Hits real ASC API end-to-end; covers JWT, apps, versions, reviews, checklist, native projection, push diff, gates, RC, briefing.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<!-- ============================================================== -->
+<section>
+  <h2>V1 (MVP) — Pending before App Store launch <span class="scope">blockers + nice-to-haves</span></h2>
+  <p class="section-desc">Code is done; these are the operational items left between &ldquo;app works locally&rdquo; and &ldquo;app is in the store earning money.&rdquo;</p>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">On-device verification of MVP flows</td>
+          <td class="area">QA</td>
+          <td class="status"><span class="badge b-inprog">In progress</span></td>
+          <td class="note">Walk the 12-item post-build checklist on the installed dev build (current step).</td>
+        </tr>
+        <tr>
+          <td class="name">Briefing widget (Home + Lock Screen)</td>
+          <td class="area">Native</td>
+          <td class="status"><span class="badge b-partial">Partial</span></td>
+          <td class="note">In-app Today tab + 7am push shipped. Glanceable widget is descoped pending user demand &mdash; requires another EAS build.</td>
+        </tr>
+        <tr>
+          <td class="name">Deploy Cloudflare push worker to production</td>
+          <td class="area">Ops</td>
+          <td class="status"><span class="badge b-pending">Pending</span></td>
+          <td class="note">Code complete + 103 tests passing. Needs <code>wrangler login</code>, D1 create, APNs secret set, deploy. ~15 min once secrets are ready.</td>
+        </tr>
+        <tr>
+          <td class="name">App Store Connect: subscription products + group</td>
+          <td class="area">Store</td>
+          <td class="status"><span class="badge b-pending">Pending</span></td>
+          <td class="note">Create <code>release_pilot_pro_monthly</code> + <code>_yearly</code> in ONE subscription group; map into RC; set 14-day trial as intro offer.</td>
+        </tr>
+        <tr>
+          <td class="name">App Store listing assets</td>
+          <td class="area">Store</td>
+          <td class="status"><span class="badge b-pending">Pending</span></td>
+          <td class="note">App icon (final), 6.7" + 6.1" screenshots, marketing copy, keywords, privacy policy URL, support URL.</td>
+        </tr>
+        <tr>
+          <td class="name">Production EAS build + TestFlight + App Store submission</td>
+          <td class="area">Release</td>
+          <td class="status"><span class="badge b-pending">Pending</span></td>
+          <td class="note"><code>eas build --profile production --platform ios</code> &rarr; <code>eas submit</code> &rarr; review.</td>
+        </tr>
+        <tr>
+          <td class="name">Initialize git remote + push project</td>
+          <td class="area">Ops</td>
+          <td class="status"><span class="badge b-pending">Pending</span></td>
+          <td class="note">Deferred per your instructions until after local testing is complete.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<!-- ============================================================== -->
+<section>
+  <h2>V1.5 — Next horizon <span class="scope">gated on 200+ paying subscribers + 4.5+ rating</span></h2>
+  <p class="section-desc">Retention + ARPU expansion. Introduces the &ldquo;Studio&rdquo; tier at $19.99/mo or $149/yr.</p>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">Daily morning briefing widget (Lock + Home Screen)</td>
+          <td class="area">Native</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">A second widget kind alongside Releases. Renders MRR delta, new trials, top review, active release state.</td>
+        </tr>
+        <tr>
+          <td class="name">TestFlight feedback inbox</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Pull <code>betaFeedbackScreenshotSubmissions</code> + <code>betaFeedbackCrashSubmissions</code>, group by build, inline viewer.</td>
+        </tr>
+        <tr>
+          <td class="name">Apple Watch app + release-status complication</td>
+          <td class="area">Native</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Glanceable: app + state + minutes-in-state. Mini review reader for the latest 5.</td>
+        </tr>
+        <tr>
+          <td class="name">Review sentiment trend (on-device NL)</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Per-app sentiment chart 7/30/90d, auto-cluster of complaint themes via <code>NLEmbedding</code>, no server roundtrip.</td>
+        </tr>
+        <tr>
+          <td class="name">Studio tier ($19.99/mo) with prorated upgrade</td>
+          <td class="area">Subs</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Indie users upgrade with prorated billing; Founders Lifetime gets Studio features auto.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<!-- ============================================================== -->
+<section>
+  <h2>V2 — Long horizon <span class="scope">gated on 500+ subscribers + 25%+ on Studio</span></h2>
+  <p class="section-desc">AI + analytics depth. Goal: make the app hard to leave once a user is in.</p>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">AI release-notes generator</td>
+          <td class="area">AI</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">GitHub connect &rarr; commits since last tag &rarr; categorize &rarr; LLM-write &ldquo;What's New&rdquo; &rarr; PATCH to ASC.</td>
+        </tr>
+        <tr>
+          <td class="name">Multi-locale review monitoring + translation</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">On-device <code>Translation</code> framework (iOS 18+), per-locale rating trends, auto-translated reply suggestions.</td>
+        </tr>
+        <tr>
+          <td class="name">Crash log triage</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">ASC <code>diagnosticSignatures</code>, per-release crash trend, dSYM-backed stack trace viewer.</td>
+        </tr>
+        <tr>
+          <td class="name">Per-release retrospective</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">7-day post-release card; shareable image for &ldquo;build in public&rdquo; tweets.</td>
+        </tr>
+        <tr>
+          <td class="name">Cross-app portfolio insights</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Combined MRR, release cadence, best/worst review trend, time-to-review across the portfolio.</td>
+        </tr>
+        <tr>
+          <td class="name">Possible &ldquo;Studio Pro&rdquo; tier ($39.99/mo)</td>
+          <td class="area">Subs</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Unlimited AI generations, deeper crash retention, priority support &mdash; only if demand signals it.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<footer>
+  Source of truth lives in <code>app/AGENTS.md</code> &middot; Plan documents:
+  <code>RELEASE_PILOT_V1_PLAN.md</code>, <code>RELEASE_PILOT_V1.5_PLAN.md</code>, <code>RELEASE_PILOT_V2_PLAN.md</code>
+</footer>
+
+</main>
+</body>
+</html>

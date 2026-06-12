@@ -1,0 +1,8 @@
+{
+  "name": "live-activity",
+  "version": "1.0.0",
+  "description": "Custom Expo module: ActivityKit Live Activity start/update/end bridge.",
+  "main": "index.ts",
+  "types": "index.ts",
+  "private": true
+}

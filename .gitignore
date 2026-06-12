@@ -1,0 +1,107 @@
+# ===========================================
+# Release Pilot — root .gitignore
+# ===========================================
+# Sub-directories have their own .gitignore (app/.gitignore, worker/.gitignore)
+# which are still honored. The rules here are belt-and-suspenders coverage that
+# applies project-wide so a stray secret can't sneak in via a new subdir.
+
+# ---- SECRETS — never commit, ever ----
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.cert
+*.mobileprovision
+*.jks
+*.keystore
+
+# Apple / ASC credential files
+.local-credentials.json
+.asc-credentials.json
+
+# Env files (any name, any location)
+.env
+.env.*
+!.env.example
+!.env.*.example
+.dev.vars
+.dev.vars.*
+secrets.json
+secrets.yaml
+credentials.json
+
+# ---- OS / IDE noise ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# IDE-specific
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+.history/
+
+# Claude/AI agent caches (machine-specific, never useful to share)
+.claude/
+.aider*
+.cursor/
+
+# ---- Node / JS ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- Expo / React Native ----
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Generated native folders (managed by Expo prebuild)
+/ios
+/android
+**/ios/Pods/
+**/ios/build/
+**/android/build/
+**/android/.gradle/
+**/android/app/build/
+
+# ---- Cloudflare Workers ----
+.wrangler/
+worker/.wrangler/
+
+# ---- Build & log artifacts (root) ----
+*.log
+*.tmp
+*.tmp.json
+build-info.tmp.json
+build-log-decompressed.txt
+
+# ---- TypeScript / test caches ----
+*.tsbuildinfo
+coverage/
+test-results/
+playwright-report/
+
+# ---- SQLite local databases ----
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# ---- Misc ----
+*.bak
+*.orig.*
+.history/
+example

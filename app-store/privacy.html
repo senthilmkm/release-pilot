@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Release Pilot privacy policy. Your App Store Connect API key never leaves your phone.">
+<title>Privacy Policy — Release Pilot</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --bg-elev: #f7f7f9;
+    --text: #0a0a0a;
+    --text-secondary: #4b5563;
+    --text-tertiary: #9ca3af;
+    --accent: #2563eb;
+    --accent-muted: #dbeafe;
+    --border: #e5e7eb;
+    --code-bg: #f3f4f6;
+    --tl-dr-bg: #eff6ff;
+    --tl-dr-border: #bfdbfe;
+    --content-max: 740px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0a0a;
+      --bg-elev: #141414;
+      --text: #f5f5f5;
+      --text-secondary: #a3a3a3;
+      --text-tertiary: #6b7280;
+      --accent: #60a5fa;
+      --accent-muted: #1e3a8a;
+      --border: #262626;
+      --code-bg: #1a1a1a;
+      --tl-dr-bg: #0f1e3b;
+      --tl-dr-border: #1e3a8a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in oklab, var(--bg) 92%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+  }
+  .nav {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .brand .badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 70%, #8b5cf6));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .nav-links {
+    display: flex;
+    gap: 18px;
+    font-size: 14px;
+  }
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .nav-links a:hover { color: var(--text); }
+  main {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 48px 20px 96px;
+  }
+  .hero {
+    margin-bottom: 36px;
+  }
+  .hero h1 {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    margin-bottom: 8px;
+  }
+  .hero .meta {
+    color: var(--text-secondary);
+    font-size: 14px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .hero .meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .tl-dr {
+    background: var(--tl-dr-bg);
+    border: 1px solid var(--tl-dr-border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 28px 0;
+  }
+  .tl-dr h2 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    border: none;
+    padding: 0;
+  }
+  .tl-dr ul {
+    padding-left: 20px;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .tl-dr li + li { margin-top: 6px; }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin-top: 48px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 14px 0 14px 22px; }
+  li { margin-bottom: 6px; }
+  a { color: var(--accent); }
+  a:hover { text-decoration: underline; }
+  strong { font-weight: 700; color: var(--text); }
+  code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+    font-size: 0.88em;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 22px;
+    font-size: 15px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-elev);
+  }
+  .updated {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 36px 0;
+  }
+  footer {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 32px 20px 48px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--text-secondary); margin: 0 8px; text-decoration: none; }
+  footer a:hover { color: var(--text); text-decoration: underline; }
+  @media (max-width: 540px) {
+    .hero h1 { font-size: 28px; }
+    h2 { font-size: 19px; }
+    main { padding: 32px 18px 64px; }
+    .nav-links { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="/">
+      <span class="badge">R</span>
+      Release Pilot
+    </a>
+    <div class="nav-links">
+      <a href="/support.html">Support</a>
+      <a href="/">Home</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Privacy Policy</h1>
+    <div class="meta">
+      <span><strong>Effective:</strong> <em>[FILL IN before publishing]</em></span>
+      <span><strong>Last updated:</strong> <em>[FILL IN before publishing]</em></span>
+    </div>
+  </section>
+
+  <p>This privacy policy describes how Release Pilot ("the app", "we", "us") handles your information. We've intentionally written it in plain English. If anything is unclear, email <a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a> and we'll revise it.</p>
+
+  <div class="tl-dr">
+    <h2>TL;DR</h2>
+    <ul>
+      <li>We have <strong>no server</strong> that stores your App Store Connect data.</li>
+      <li>Your App Store Connect API key is stored on your device only, in the iOS Keychain, protected by Face ID / Touch ID.</li>
+      <li>We don't collect personal data, run analytics, or use third-party trackers.</li>
+      <li>The only network calls we make are: (1) to <strong>Apple's App Store Connect API</strong> to fetch your release data, signed locally by your API key; (2) to <strong>RevenueCat</strong> to validate your subscription receipt; (3) to <strong>our Cloudflare Worker</strong> to deliver push notifications.</li>
+      <li>You can delete everything by removing the app — there's nothing on any server to delete.</li>
+    </ul>
+  </div>
+
+  <h2>1. What information Release Pilot accesses</h2>
+
+  <h3>1.1 Your App Store Connect API key</h3>
+  <p>When you connect an App Store Connect account, you generate an API key in App Store Connect (Apple's developer portal) and paste three values into the app: the <strong>Issuer ID</strong>, the <strong>Key ID</strong>, and the contents of the <strong>.p8 private key file</strong>.</p>
+  <p>We store these three values in <strong>your device's iOS Keychain</strong> using the <code>expo-secure-store</code> library. The keychain entry is:</p>
+  <ul>
+    <li>Accessible only when your device is <strong>unlocked</strong></li>
+    <li>Marked <strong><code>ThisDeviceOnly</code></strong> — it is not synced to iCloud Keychain, not transferable to another device, and not backed up to iTunes/Finder</li>
+    <li>Protected by your device's <strong>biometric authentication</strong> (Face ID / Touch ID / Passcode) when present</li>
+  </ul>
+  <p>We use these values exclusively to generate short-lived JSON Web Tokens (JWTs) <strong>on your device</strong> that authenticate requests to Apple's App Store Connect API. Each JWT expires after at most 20 minutes, then is regenerated.</p>
+  <p><strong>Your API key never leaves your device.</strong> It is never transmitted to our servers, our developer's machines, any third party, or any analytics service.</p>
+
+  <h3>1.2 Your App Store Connect data</h3>
+  <p>We make HTTP requests <strong>directly from your device to <code>https://api.appstoreconnect.apple.com</code></strong>. These requests fetch:</p>
+  <ul>
+    <li>Your apps (name, bundle ID, icon)</li>
+    <li>Each app's version history (version number, build number, app store state, dates)</li>
+    <li>Customer reviews (review text, rating, customer nickname, date)</li>
+    <li>TestFlight builds (for the pre-submit checklist)</li>
+  </ul>
+  <p>The responses are stored <strong>only in memory</strong> for the current session and in a local SQLite database (<code>expo-sqlite</code>) on your device for offline display between launches. This data is <strong>never</strong> sent to any server we operate.</p>
+
+  <h3>1.3 Notification settings and counters</h3>
+  <p>We store a small amount of state on your device using <code>react-native-mmkv</code>:</p>
+  <ul>
+    <li>Whether you've granted notification permission (boolean)</li>
+    <li>Notification preferences (mute-per-app, quiet hours, etc.)</li>
+    <li>Counters for free-tier rate limits (e.g. "checklist runs this week")</li>
+    <li>The current app theme and tab selection</li>
+  </ul>
+  <p>None of this leaves your device.</p>
+
+  <h3>1.4 Subscription receipts</h3>
+  <p>We use <strong>RevenueCat</strong> (a third-party StoreKit infrastructure provider, <a href="https://www.revenuecat.com" target="_blank" rel="noopener">revenuecat.com</a>) to validate that your in-app subscription purchase is genuine, and to unlock Pro features. RevenueCat receives:</p>
+  <ul>
+    <li>A randomly generated <strong>anonymous installation ID</strong> created by your device (a UUID — not your Apple ID, name, or email)</li>
+    <li>The <strong>receipt</strong> that Apple's StoreKit gives the app after a purchase</li>
+  </ul>
+  <p>RevenueCat does <strong>not</strong> receive your App Store Connect API key, your App Store Connect data, your reviews, your release information, or any personally identifiable information about you. See <a href="https://www.revenuecat.com/privacy" target="_blank" rel="noopener">RevenueCat's privacy policy</a>.</p>
+
+  <h3>1.5 Push notifications</h3>
+  <p>To deliver push notifications, your device's <strong>APNs (Apple Push Notification service) device token</strong> is sent to our Cloudflare Worker at <code>release-pilot.workers.dev</code>. The Worker stores the token alongside the user's anonymous installation ID for the duration of your Pro subscription, and uses it to deliver push notifications to your device when one of your apps changes status.</p>
+  <p>The Worker receives <strong>only</strong> the APNs token and a small payload describing the state change (e.g. <code>{ascId: 12345, from: 'in_review', to: 'approved'}</code>). It does <strong>not</strong> receive your API key, your name, your Apple ID, or any other personal information.</p>
+  <p>You can disable push notifications at any time in iOS Settings → Notifications → Release Pilot. Disabling them stops all data flow to the Worker.</p>
+
+  <h2>2. What information we do NOT collect</h2>
+  <p>We want to be specific about what we <em>don't</em> do, because most apps you've used probably do these things and we don't:</p>
+  <ul>
+    <li><strong>No analytics SDKs.</strong> We do not embed Firebase Analytics, Mixpanel, Amplitude, Segment, or any other usage tracker.</li>
+    <li><strong>No crash reporting at v1.0.</strong> <em>(If we add Sentry or similar in a future version, this policy will be updated and you'll be notified in-app before we activate it.)</em></li>
+    <li><strong>No advertising IDs.</strong> We do not access IDFA or the App Tracking Transparency framework.</li>
+    <li><strong>No social SDKs.</strong> Facebook, Google, TikTok — none.</li>
+    <li><strong>No fingerprinting.</strong> We do not collect IP address, device model, OS version, screen size, font enumeration, or any other passive identifier for the purposes of identification.</li>
+    <li><strong>No data sold to third parties. Ever.</strong></li>
+  </ul>
+
+  <h2>3. Third-party services</h2>
+  <table>
+    <thead>
+      <tr><th>Service</th><th>Why</th><th>What it sees</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Apple App Store Connect API</strong></td>
+        <td>Fetches your release data</td>
+        <td>Whatever you've granted the API key access to (your apps, reviews, builds) — signed by <em>your</em> key, fetched <em>from your device</em></td>
+      </tr>
+      <tr>
+        <td><strong>RevenueCat</strong></td>
+        <td>Validates IAP receipts, unlocks Pro</td>
+        <td>Anonymous installation ID + Apple's IAP receipt</td>
+      </tr>
+      <tr>
+        <td><strong>Apple Push Notification service (APNs)</strong></td>
+        <td>Delivers push notifications</td>
+        <td>Device token + payload describing the state change</td>
+      </tr>
+      <tr>
+        <td><strong>Cloudflare Workers</strong></td>
+        <td>Delivers our push notifications via APNs</td>
+        <td>APNs token + state change payload (no PII)</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>We have no other third-party services in the app.</p>
+
+  <h2>4. Your rights</h2>
+
+  <h3>4.1 Delete everything</h3>
+  <p>You can delete all data Release Pilot has access to by:</p>
+  <ol>
+    <li>Opening the app → More → ASC Accounts → delete each connected account (this revokes our access to the App Store Connect API and clears the local SQLite cache)</li>
+    <li>Deleting the Release Pilot app from your device (this removes the iOS Keychain entries, the MMKV settings, and the local SQLite database)</li>
+  </ol>
+  <p>To delete data on our <strong>Cloudflare Worker</strong> (your APNs device token):</p>
+  <ul>
+    <li>Open the app → More → Push notifications → tap "Disable"</li>
+    <li>Or email <a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a> with your anonymous installation ID (found in More → Diagnostics) and we'll delete it within 7 days</li>
+  </ul>
+
+  <h3>4.2 Revoke our API key access</h3>
+  <p>You can immediately revoke Release Pilot's ability to read your App Store Connect data by going to App Store Connect → Users and Access → Integrations → Keys → revoke the key you generated for Release Pilot. This takes effect within seconds and renders the app inert until you generate a new key.</p>
+
+  <h3>4.3 GDPR / CCPA</h3>
+  <p>If you are a resident of the European Union (under GDPR) or California (under CCPA), you have the right to:</p>
+  <ul>
+    <li>Request a copy of any personal data we hold about you (answer: we don't hold any on our servers — see Section 1)</li>
+    <li>Request deletion of any personal data we hold about you (see Section 4.1)</li>
+    <li>Object to processing of your personal data</li>
+    <li>Lodge a complaint with your local data protection authority</li>
+  </ul>
+  <p>Email <a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a> to exercise any of these rights. We respond within 30 days.</p>
+
+  <h2>5. Children</h2>
+  <p>Release Pilot is a developer tool. It is rated 4+ but is not designed for or directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe we have, please contact us and we will delete it.</p>
+
+  <h2>6. Changes to this policy</h2>
+  <p>If we make material changes to this policy, we will:</p>
+  <ul>
+    <li>Post the updated policy at <code>https://releasepilot.app/privacy</code> with a new "Last updated" date</li>
+    <li>Display an in-app notice on next launch before the change takes effect</li>
+  </ul>
+  <p>Material changes will not be applied retroactively to data already collected.</p>
+
+  <h2>7. Contact</h2>
+  <table>
+    <tbody>
+      <tr><th>Email</th><td><a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a></td></tr>
+      <tr><th>Postal address</th><td><em>[FILL IN — required for EU users under GDPR Art. 13]</em></td></tr>
+      <tr><th>Developer of record</th><td>Senthil <em>[Full last name]</em></td></tr>
+    </tbody>
+  </table>
+
+  <h2>8. Jurisdiction</h2>
+  <p>This policy is governed by the laws of <em>[FILL IN — your country/state of residence]</em>.</p>
+  <p>For App Store transactions, Apple's standard EULA also applies: <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener">apple.com/legal/internet-services/itunes/dev/stdeula</a></p>
+</main>
+
+<footer>
+  <div>
+    <a href="/">Home</a> ·
+    <a href="/support.html">Support</a> ·
+    <a href="mailto:senthil930@gmail.com">Email</a>
+  </div>
+  <div style="margin-top:8px">© <span id="year"></span> Release Pilot. Built by an indie iOS developer.</div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

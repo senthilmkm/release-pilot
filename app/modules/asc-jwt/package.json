@@ -1,0 +1,8 @@
+{
+  "name": "asc-jwt",
+  "version": "1.0.0",
+  "description": "Custom Expo module: ES256 JWT signer for App Store Connect API (uses CryptoKit).",
+  "main": "index.ts",
+  "types": "index.ts",
+  "private": true
+}

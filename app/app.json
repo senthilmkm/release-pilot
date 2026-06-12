@@ -1,0 +1,174 @@
+{
+  "expo": {
+    "name": "Release Pilot",
+    "slug": "release-pilot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "releasepilot",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.releasepilot.ios",
+      "appleTeamId": "2KJK6895B3",
+      "icon": "./assets/expo.icon",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.app.releasepilot.shared"
+        ],
+        "com.apple.developer.usernotifications.communication": true,
+        "aps-environment": "production"
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          }
+        ]
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Release Pilot uses Face ID to protect your App Store Connect API key.",
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true,
+        "UIBackgroundModes": [
+          "fetch",
+          "processing",
+          "remote-notification"
+        ],
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "app.releasepilot.refresh",
+          "app.releasepilot.poll"
+        ],
+        "LSApplicationQueriesSchemes": [
+          "mailto",
+          "https"
+        ]
+      }
+    },
+    "android": {
+      "package": "app.releasepilot.android",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b1681916-c2a2-4544-a179-31ac0dd2d8f0"
+    },
+    "extra": {
+      "revenueCat": {
+        "iosApiKey": "appl_JbvUHiRqdtvVRdXDXBcNKDgQnRe",
+        "entitlementId": "pro",
+        "currentOfferingId": "default"
+      },
+      "workerUrl": "https://release-pilot.workers.dev",
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "app.releasepilot.ios.widget",
+                  "targetName": "ReleasePilotWidget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.app.releasepilot.shared"
+                    ]
+                  }
+                },
+                {
+                  "bundleIdentifier": "app.releasepilot.ios.notification-service",
+                  "targetName": "ReleasePilotNotificationService",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.app.releasepilot.shared"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "b1681916-c2a2-4544-a179-31ac0dd2d8f0"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A0A0A",
+          "android": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 76
+          }
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Release Pilot uses Face ID to protect your App Store Connect API key."
+        }
+      ],
+      [
+        "expo-notifications",
+        {}
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.0",
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-web-browser",
+      "@bacons/apple-targets"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "owner": "senthil930"
+  }
+}

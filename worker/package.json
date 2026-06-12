@@ -1,0 +1,23 @@
+{
+  "name": "release-pilot-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker: polls App Store Connect, sends APNs pushes when release state changes.",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "db:create": "wrangler d1 create release-pilot",
+    "db:migrate:local": "wrangler d1 execute release-pilot --local --file=src/storage/d1-schema.sql",
+    "db:migrate:prod": "wrangler d1 execute release-pilot --remote --file=src/storage/d1-schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260601.0",
+    "tsx": "^4.22.4",
+    "typescript": "~5.6.3",
+    "wrangler": "^3.85.0"
+  }
+}

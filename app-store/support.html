@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Release Pilot support, troubleshooting, and contact. Email senthil930@gmail.com.">
+<title>Support — Release Pilot</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --bg-elev: #f7f7f9;
+    --text: #0a0a0a;
+    --text-secondary: #4b5563;
+    --text-tertiary: #9ca3af;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-muted: #dbeafe;
+    --border: #e5e7eb;
+    --code-bg: #f3f4f6;
+    --tl-dr-bg: #eff6ff;
+    --tl-dr-border: #bfdbfe;
+    --success: #059669;
+    --warning: #d97706;
+    --content-max: 740px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0a0a;
+      --bg-elev: #141414;
+      --text: #f5f5f5;
+      --text-secondary: #a3a3a3;
+      --text-tertiary: #6b7280;
+      --accent: #60a5fa;
+      --accent-hover: #93c5fd;
+      --accent-muted: #1e3a8a;
+      --border: #262626;
+      --code-bg: #1a1a1a;
+      --tl-dr-bg: #0f1e3b;
+      --tl-dr-border: #1e3a8a;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in oklab, var(--bg) 92%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+  }
+  .nav {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .brand .badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 70%, #8b5cf6));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .nav-links {
+    display: flex;
+    gap: 18px;
+    font-size: 14px;
+  }
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .nav-links a:hover { color: var(--text); }
+  main {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 48px 20px 96px;
+  }
+  .hero { margin-bottom: 32px; }
+  .hero h1 {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .hero p {
+    color: var(--text-secondary);
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  .contact-card {
+    background: var(--tl-dr-bg);
+    border: 1px solid var(--tl-dr-border);
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin: 24px 0 40px;
+    flex-wrap: wrap;
+  }
+  .contact-card .left { flex: 1; min-width: 240px; }
+  .contact-card h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    border: none;
+    padding: 0;
+  }
+  .contact-card p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: white;
+    text-decoration: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: background 0.15s ease;
+    border: 0;
+  }
+  .button:hover { background: var(--accent-hover); text-decoration: none; }
+  .button.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .button.secondary:hover {
+    background: var(--accent-muted);
+  }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin-top: 48px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 14px 0 14px 22px; }
+  li { margin-bottom: 6px; }
+  a { color: var(--accent); }
+  a:hover { text-decoration: underline; }
+  strong { font-weight: 700; color: var(--text); }
+  code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+    font-size: 0.88em;
+  }
+
+  details {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    margin: 12px 0;
+    overflow: hidden;
+    background: var(--bg-elev);
+    transition: background 0.15s ease;
+  }
+  details[open] {
+    background: var(--bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  details summary {
+    cursor: pointer;
+    padding: 16px 20px;
+    font-weight: 600;
+    font-size: 16px;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    user-select: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after {
+    content: "+";
+    font-size: 22px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+    line-height: 1;
+    transition: transform 0.2s ease;
+  }
+  details[open] summary::after {
+    content: "−";
+  }
+  details .answer {
+    padding: 0 20px 18px;
+    font-size: 15.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+  details .answer p:last-child { margin-bottom: 0; }
+  details .answer strong { color: var(--text); }
+  details .answer ul, details .answer ol { margin: 10px 0 10px 22px; }
+
+  .step-list {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;
+    counter-reset: step;
+  }
+  .step-list li {
+    counter-increment: step;
+    padding: 14px 16px 14px 56px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    position: relative;
+    background: var(--bg);
+  }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 28px;
+    height: 28px;
+    border-radius: 14px;
+    background: var(--accent-muted);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--tl-dr-bg);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 18px 0;
+    font-size: 15px;
+    color: var(--text-secondary);
+  }
+  .note strong { color: var(--accent); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 22px;
+    font-size: 15px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-elev);
+  }
+
+  footer {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 32px 20px 48px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--text-secondary); margin: 0 8px; text-decoration: none; }
+  footer a:hover { color: var(--text); text-decoration: underline; }
+
+  @media (max-width: 540px) {
+    .hero h1 { font-size: 28px; }
+    .hero p { font-size: 16px; }
+    h2 { font-size: 19px; }
+    main { padding: 32px 18px 64px; }
+    .nav-links { gap: 14px; }
+    .contact-card { flex-direction: column; align-items: stretch; text-align: left; }
+    .contact-card .button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="/">
+      <span class="badge">R</span>
+      Release Pilot
+    </a>
+    <div class="nav-links">
+      <a href="/privacy.html">Privacy</a>
+      <a href="/">Home</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Support</h1>
+    <p>Need help with Release Pilot? I'm one indie developer and I read every email myself — usually within a few hours.</p>
+  </section>
+
+  <div class="contact-card">
+    <div class="left">
+      <h2>Email me directly</h2>
+      <p>Response time: a few hours during US/Pacific business hours. Include your iOS version and a screenshot if you can.</p>
+    </div>
+    <a class="button" href="mailto:senthil930@gmail.com?subject=Release%20Pilot%20Support">Email senthil930@gmail.com</a>
+  </div>
+
+  <h2>Common questions</h2>
+
+  <details>
+    <summary>How do I generate an App Store Connect API key?</summary>
+    <div class="answer">
+      <p>Release Pilot walks you through this on its onboarding screen, but here's the short version:</p>
+      <ol class="step-list">
+        <li>On any computer, sign in to <a href="https://appstoreconnect.apple.com" target="_blank" rel="noopener">App Store Connect</a> with your Apple Developer account.</li>
+        <li>Go to <strong>Users and Access → Integrations → Keys</strong>.</li>
+        <li>Tap <strong>Generate API Key</strong>. Name it "Release Pilot" and choose <strong>App Manager</strong> as the access level (this is the lowest role that can read app data and reply to reviews).</li>
+        <li>Note down the <strong>Issuer ID</strong> (at the top of the page) and the <strong>Key ID</strong> (next to your new key).</li>
+        <li>Download the <strong>.p8 file</strong>. <strong>Apple only lets you download this once</strong> — if you lose it, you have to revoke the key and generate a new one.</li>
+        <li>Open the .p8 file in any text editor (TextEdit, Notepad, or the Files app on iPhone) and copy the entire contents, including the <code>-----BEGIN PRIVATE KEY-----</code> and <code>-----END PRIVATE KEY-----</code> lines.</li>
+        <li>Back in Release Pilot, paste the Issuer ID, Key ID, and the .p8 contents into the onboarding screen.</li>
+      </ol>
+      <p class="note"><strong>Tip:</strong> If you generated the key on a Mac and need it on your iPhone, AirDrop the .p8 file to yourself. Long-press it in the Files app → Share → "Copy to Clipboard" — much easier than typing.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>What permissions does my API key need?</summary>
+    <div class="answer">
+      <p>The minimum role is <strong>App Manager</strong>. This grants Release Pilot the ability to:</p>
+      <ul>
+        <li>Read your app list and version history</li>
+        <li>Read your customer reviews</li>
+        <li>Reply to customer reviews (only when you tap "Reply" — never automatically)</li>
+        <li>Read your TestFlight builds (for the pre-submit checklist)</li>
+      </ul>
+      <p>You can use a higher role (like Admin) but it's not required and we recommend against it — the App Manager role is the principle-of-least-privilege choice.</p>
+      <p>Release Pilot <strong>never</strong> submits apps for review, changes pricing, or takes any irreversible action on your account.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Is my API key safe? Where is it stored?</summary>
+    <div class="answer">
+      <p>Your API key never leaves your phone. Specifically:</p>
+      <ul>
+        <li>It's stored in the <strong>iOS Keychain</strong> with the <code>ThisDeviceOnly</code> flag — it's not synced to iCloud, not backed up to iTunes, and not transferable to another device.</li>
+        <li>It's protected by Face ID / Touch ID / your device passcode.</li>
+        <li>All authenticated requests to Apple's App Store Connect API are signed <strong>on your device</strong> using the JWT algorithm Apple requires (ES256).</li>
+        <li>The signed JWT lives in memory for at most 20 minutes before being regenerated.</li>
+        <li>We operate <strong>no server</strong> that has any access to your API key.</li>
+      </ul>
+      <p>If you ever want to revoke our access, go to App Store Connect → Users and Access → Integrations → Keys → and revoke the key. It takes effect within seconds.</p>
+      <p>Full details in our <a href="/privacy.html">privacy policy</a>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>I'm not receiving push notifications. What's wrong?</summary>
+    <div class="answer">
+      <p>Push notifications require a few things to be aligned. Check each one:</p>
+      <ol>
+        <li><strong>You're on Pro.</strong> Push notifications are a Pro feature. Open More to confirm your subscription status.</li>
+        <li><strong>iOS notification permission is granted.</strong> iOS Settings → Notifications → Release Pilot → make sure "Allow Notifications" is on. Also check "Lock Screen", "Notification Center", and "Banners" are all enabled.</li>
+        <li><strong>The toggle in the app is on.</strong> Open Release Pilot → More → Push notifications.</li>
+        <li><strong>Your app actually had a state change.</strong> Pushes only fire when one of your apps transitions states. If everything's been "Live" for a week, you won't get pushes.</li>
+        <li><strong>You're not in Quiet Hours.</strong> If you set Quiet Hours in app settings, notifications are silenced (delivered to Notification Center, but no banner).</li>
+        <li><strong>Low Power Mode is off.</strong> iOS may delay or suppress non-critical push notifications when Low Power Mode is on.</li>
+      </ol>
+      <p>Still not working? Email me with the output of <strong>More → Diagnostics → Copy diagnostics</strong> and I'll dig in.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>The Lock Screen widget isn't updating. What's wrong?</summary>
+    <div class="answer">
+      <p>iOS controls when widgets refresh — they're not real-time. Release Pilot updates the widget data every time the app fetches new data from App Store Connect (pull-to-refresh, background fetch, or app launch).</p>
+      <ul>
+        <li><strong>To force a refresh:</strong> Open Release Pilot, pull-to-refresh on the Releases tab, then return to the Lock Screen. The widget should update within a few seconds.</li>
+        <li><strong>If the widget shows "Open the app to connect":</strong> Open the app, navigate to the Releases tab, and ensure you have at least one connected ASC account. Then return to the widget.</li>
+        <li><strong>If the widget shows "No apps yet":</strong> Open the app and verify your connected ASC account has at least one app. Pull-to-refresh, then check the widget again.</li>
+        <li><strong>If you just installed the app:</strong> Wait until you've added the widget to your Lock Screen AND opened the app at least once. iOS won't show widget content until both have happened.</li>
+      </ul>
+      <p>The widget's "spotlight" app (the one shown in single-app widget sizes) is the one most needing your attention: rejected first, then waiting for review, then in review, then drafting, then live. See "Widget instructions" in the app's More tab for the full ranking.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>How do I cancel my Pro subscription?</summary>
+    <div class="answer">
+      <p>Apple handles all subscription billing. To cancel:</p>
+      <ol>
+        <li>Open the iOS <strong>Settings</strong> app.</li>
+        <li>Tap your name at the top.</li>
+        <li>Tap <strong>Subscriptions</strong>.</li>
+        <li>Tap <strong>Release Pilot Pro</strong>.</li>
+        <li>Tap <strong>Cancel Subscription</strong>.</li>
+      </ol>
+      <p>Or from inside Release Pilot: More → Subscription → "Manage or cancel in Apple ID Settings".</p>
+      <p>Cancellation takes effect at the end of your current billing period — you keep Pro features until then. You can resubscribe at any time.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>How do I request a refund?</summary>
+    <div class="answer">
+      <p>All purchases are handled by Apple, and so are refunds. To request:</p>
+      <ol>
+        <li>Go to <a href="https://reportaproblem.apple.com" target="_blank" rel="noopener">reportaproblem.apple.com</a></li>
+        <li>Sign in with the Apple ID you used to purchase.</li>
+        <li>Find your Release Pilot Pro charge and choose <strong>Request a Refund</strong>.</li>
+      </ol>
+      <p>I'm a single developer — I don't have any ability to issue refunds directly. Apple's refund process is usually approved within a couple of business days.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>How do I delete my data?</summary>
+    <div class="answer">
+      <p>To delete all data stored on your device:</p>
+      <ol>
+        <li>Open Release Pilot → More → ASC Accounts → swipe-delete each connected account. (This revokes our access and clears the local cache.)</li>
+        <li>Delete the Release Pilot app from your home screen. (This removes the iOS Keychain entries, the MMKV settings, and the local SQLite database.)</li>
+      </ol>
+      <p>To delete the APNs device token on our Cloudflare Worker (the only data we store remotely):</p>
+      <ol>
+        <li>Open Release Pilot → More → Push notifications → tap "Disable".</li>
+        <li>Or email <a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a> with your anonymous installation ID (More → Diagnostics) and we'll delete it within 7 days.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details>
+    <summary>I purchased Pro but the app says I'm on Free. What do I do?</summary>
+    <div class="answer">
+      <p>This usually clears up with a restore:</p>
+      <ol>
+        <li>Open Release Pilot → More → Subscription → tap <strong>Restore Purchases</strong>.</li>
+        <li>Make sure you're signed in to the device with the same Apple ID you used for the purchase.</li>
+      </ol>
+      <p>If that doesn't work:</p>
+      <ul>
+        <li>Force-quit the app (swipe up from the bottom and flick Release Pilot away) and reopen it.</li>
+        <li>Check iOS Settings → [Your Name] → Subscriptions to confirm the subscription is active.</li>
+        <li>Restart your iPhone (sometimes StoreKit gets in a weird state).</li>
+      </ul>
+      <p>Still stuck? Email me. I can verify your purchase status on the RevenueCat side (no personal data — just your anonymous installation ID, which is in More → Diagnostics).</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>I'm not seeing my apps in the Releases tab. What's wrong?</summary>
+    <div class="answer">
+      <p>A few things to check:</p>
+      <ul>
+        <li><strong>Your API key has the right role.</strong> It needs to be <strong>App Manager</strong> or higher. If you created it as a "Developer" role, it won't see apps. Generate a new key with App Manager access.</li>
+        <li><strong>The Apple ID associated with the key actually has access to apps in the team.</strong> If you generated the key for a brand-new account that hasn't been added to an existing team, there will be nothing to show.</li>
+        <li><strong>Try pull-to-refresh.</strong> Sometimes the cache is stale.</li>
+        <li><strong>Try deleting the connected account and re-adding it.</strong> More → ASC Accounts → swipe-delete → then re-onboard with the same key.</li>
+      </ul>
+      <p>If your team has 100+ apps and the list seems incomplete, email me — there might be a pagination bug worth tracking down.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Can I use Release Pilot without paying for Pro?</summary>
+    <div class="answer">
+      <p>Yes. The free plan is forever free and includes:</p>
+      <ul>
+        <li>1 connected App Store Connect account</li>
+        <li>1 app tracked</li>
+        <li>3 pre-submit checklist runs per week</li>
+        <li>2 review replies per month</li>
+        <li>Today tab (without RevenueCat revenue data)</li>
+      </ul>
+      <p>Pro adds: every app you ship, push notifications, Lock Screen widgets, Live Activities, RevenueCat integration, unlimited review replies, unlimited checklist runs, and unlimited connected ASC accounts. <strong>7-day free trial</strong> for new subscribers.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>I have a feature request.</summary>
+    <div class="answer">
+      <p>I love hearing them. Email <a href="mailto:senthil930@gmail.com?subject=Release%20Pilot%20feature%20request">senthil930@gmail.com</a> with a quick description of what you want and (most importantly) <strong>why</strong> you want it — what's the pain it would solve?</p>
+      <p>I read every email and respond personally. Indie dev feature requests get serious weight in the roadmap.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>I found a bug.</summary>
+    <div class="answer">
+      <p>Email me with:</p>
+      <ol>
+        <li>What you did (step by step)</li>
+        <li>What you expected to happen</li>
+        <li>What actually happened</li>
+        <li>A screenshot or screen recording if you can</li>
+        <li>The output of More → Diagnostics → Copy diagnostics (version, iOS version, subscription status, connected account count, last refresh time — no personal data)</li>
+      </ol>
+      <p>The diagnostics blob is the single most useful thing you can include. Most bugs become 5x easier to fix with it.</p>
+    </div>
+  </details>
+
+  <h2>Status</h2>
+  <p>Release Pilot has no centralized "service" that can go down — all the data comes directly from Apple's App Store Connect API. If you're seeing weird issues, it's most likely one of these:</p>
+  <ul>
+    <li><strong>App Store Connect API is having an outage.</strong> Check <a href="https://developer.apple.com/system-status/" target="_blank" rel="noopener">Apple's System Status page</a> for the "App Store Connect API" line.</li>
+    <li><strong>APNs is delayed.</strong> Push notifications can be delayed by 5-30 minutes when Apple's notification network is congested. There's nothing the app can do about this.</li>
+    <li><strong>RevenueCat is having an outage.</strong> Check the <a href="https://status.revenuecat.com" target="_blank" rel="noopener">RevenueCat status page</a>. If RC is down, Pro entitlements may temporarily revert to free until they recover (your purchase is safe — restore will fix it).</li>
+  </ul>
+
+  <h2>Legal &amp; policies</h2>
+  <ul>
+    <li><a href="/privacy.html">Privacy Policy</a></li>
+    <li><a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener">Apple Standard EULA</a> (governs your use of Release Pilot)</li>
+  </ul>
+
+  <h2>Still need help?</h2>
+  <p>Email <a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a>. I respond within a few hours during US/Pacific business hours, and within 24 hours on weekends.</p>
+
+  <p style="margin-top:32px; color: var(--text-tertiary); font-size: 14px;">
+    — Senthil<br>
+    Indie iOS developer, Release Pilot
+  </p>
+</main>
+
+<footer>
+  <div>
+    <a href="/">Home</a> ·
+    <a href="/privacy.html">Privacy</a> ·
+    <a href="mailto:senthil930@gmail.com">Email</a>
+  </div>
+  <div style="margin-top:8px">© <span id="year"></span> Release Pilot. Built by an indie iOS developer.</div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>

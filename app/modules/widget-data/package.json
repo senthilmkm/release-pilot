@@ -1,0 +1,8 @@
+{
+  "name": "widget-data",
+  "version": "1.0.0",
+  "description": "Custom Expo module: writes shared App Group state + reloads WidgetKit timelines.",
+  "main": "index.ts",
+  "types": "index.ts",
+  "private": true
+}
