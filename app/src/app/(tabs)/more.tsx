@@ -13,6 +13,7 @@ import {
   ExternalLink,
   LayoutGrid,
   Plus,
+  ShieldOff,
   Sparkles,
   Trash2,
   Users,
@@ -463,6 +464,30 @@ export default function MoreTab() {
               </ThemedText>
               <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
                 Version, accounts, subscription, push state
+              </ThemedText>
+            </View>
+            <ChevronRight size={18} color={palette.textTertiary} strokeWidth={2.2} />
+          </View>
+        </Pressable>
+
+        {/* --- Danger zone --- */}
+        <SectionLabel palette={palette}>DANGER ZONE</SectionLabel>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Erase all data — delete all credentials, caches, and worker registration"
+          onPress={() => router.push('/erase-data')}
+          style={[styles.card, { backgroundColor: palette.backgroundElevated }]}
+        >
+          <View style={styles.cardRow}>
+            <View style={[styles.iconBubble, { backgroundColor: palette.destructiveMuted }]}>
+              <ShieldOff size={18} color={palette.destructive} strokeWidth={2.2} />
+            </View>
+            <View style={styles.cardRowBody}>
+              <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+                Erase all data
+              </ThemedText>
+              <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+                Reset to a fresh install — keys, caches, push, widgets
               </ThemedText>
             </View>
             <ChevronRight size={18} color={palette.textTertiary} strokeWidth={2.2} />

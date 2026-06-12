@@ -113,6 +113,10 @@ export default function RootLayout() {
                 name="widget-instructions"
                 options={{ presentation: 'card', headerShown: false }}
               />
+              <Stack.Screen
+                name="erase-data"
+                options={{ presentation: 'card', headerShown: false }}
+              />
             </Stack>
             {/* Floating offline indicator. Absolutely positioned so it
                 never disturbs underlying screen layout when toggling. */}

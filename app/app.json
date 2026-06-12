@@ -4,14 +4,14 @@
     "slug": "release-pilot",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "releasepilot",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.releasepilot.ios",
       "appleTeamId": "2KJK6895B3",
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/icon.png",
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.app.releasepilot.shared"
@@ -135,9 +135,20 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0A0A0A",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "ios": {
+            "image": "./assets/splash-icon.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#0A0A0A"
+          },
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "./assets/splash-icon.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#0A0A0A"
           }
         }
       ],

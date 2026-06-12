@@ -4,7 +4,8 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Application from 'expo-application';
 import * as Clipboard from 'expo-clipboard';
-import { Bug, Check, ChevronLeft, Copy, X } from 'lucide-react-native';
+import * as Notifications from 'expo-notifications';
+import { Bell, Bug, Check, ChevronLeft, Copy, X } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Radii, Spacing, TypeScale } from '@/constants/theme';
@@ -108,6 +109,39 @@ export default function DiagnosticsScreen() {
     Alert.alert('Copied', 'Diagnostics copied to clipboard. Paste into your support email.');
   };
 
+  const handleSendTestPush = async () => {
+    void haptic.light();
+    const perm = await Notifications.getPermissionsAsync();
+    if (perm.status !== 'granted') {
+      Alert.alert(
+        'Notifications off',
+        'Enable notifications in iOS Settings → Release Pilot, then try again.',
+      );
+      return;
+    }
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Recall: Personal Memory',
+          body: 'Now In Review · Submitted 6h ago',
+          sound: 'default',
+          data: { type: 'diagnostic-test' },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 8,
+          repeats: false,
+        },
+      });
+      Alert.alert(
+        'Lock your phone now',
+        'A test notification will arrive in 8 seconds. Press the side button to lock the screen so it appears on the Lock Screen.',
+      );
+    } catch (e) {
+      Alert.alert('Could not send', String(e));
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
       <View style={styles.header}>
@@ -181,6 +215,31 @@ export default function DiagnosticsScreen() {
             </View>
           </View>
         ))}
+
+        <View style={styles.block}>
+          <ThemedText style={[TypeScale.captionEmph, styles.blockTitle, { color: palette.textTertiary }]}>
+            TESTS
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Send test notification in 8 seconds"
+            onPress={handleSendTestPush}
+            style={({ pressed }) => [
+              styles.testButton,
+              { backgroundColor: palette.backgroundElevated, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Bell size={18} color={palette.accent} strokeWidth={2.2} />
+            <View style={styles.testButtonText}>
+              <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+                Send test notification
+              </ThemedText>
+              <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+                Arrives in 8 seconds. Lock your phone to capture the Lock Screen.
+              </ThemedText>
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -231,5 +290,17 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: Radii.lg,
+    minHeight: 64,
+  },
+  testButtonText: {
+    flex: 1,
+    gap: 2,
   },
 });

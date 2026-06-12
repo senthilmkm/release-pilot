@@ -67,9 +67,32 @@ To test:
 5. Confirm the purchase
 6. The app returns to the Releases tab and you should immediately see Pro features enabled (e.g. you can now add a second connected ASC account)
 
-### Account deletion
+### Account deletion (Guideline 5.1.1(v))
 
-A user can delete their data at any time via More → ASC Accounts → swipe-to-delete on any connected account. Deleting all connected accounts returns the app to its empty-state onboarding. Because we have no server that stores user data, deleting from the device deletes everything.
+Release Pilot has no traditional user account — credentials live on-device in iOS Keychain — but we still provide a one-tap "delete account" equivalent for full guideline compliance:
+
+**Single destructive action:** **More → DANGER ZONE → Erase all data**
+
+That screen wipes, in one operation:
+
+1. Every connected App Store Connect API key (.p8 PEMs in iOS Keychain)
+2. Every RevenueCat secret key (per-app, in iOS Keychain)
+3. All cached app data (SQLite tables: app rows, version history, customer reviews, offline reply queue)
+4. All MMKV-backed app state (gate counters, briefing snapshot, Live Activity records)
+5. The push registration row on our worker (`POST /v1/unregister`) — Apple stops being polled on behalf of this device
+6. The RevenueCat subscriber alias (`Purchases.logOut()`)
+7. All scheduled iOS notifications
+8. The shared App Group container the widget reads from (Home / Lock Screen widgets revert to empty state)
+9. Any active Live Activities
+
+The user is then routed back to the welcome / onboarding screen. The app's state is indistinguishable from a fresh install at that point.
+
+We also retain the granular delete affordances — More → ASC Accounts → swipe-to-delete, and More → Apps → disconnect RevenueCat — for users who want to remove a single team or RC project without nuking the whole device.
+
+**What the wipe does NOT do** (and we explain this in-line on the screen):
+
+- It does not cancel the App Store subscription itself — Apple owns that and the user manages it via Settings → Apple ID → Subscriptions.
+- It does not revoke the API key in App Store Connect — only Apple's own ASC website can do that.
 
 ### Background refresh
 

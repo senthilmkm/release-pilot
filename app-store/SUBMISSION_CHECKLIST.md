@@ -20,10 +20,12 @@ Print this. Cross off each line as you do it. Do not skip — the items are orde
 - [ ] **Support URL is hosted and works** at `https://releasepilot.app/support`
   - Minimum: a page with your email and an "Email me" button
   - Apple will reject if this is a `mailto:` URL in the listing field — must be `https://`
-- [ ] **Account deletion path is functional**
-  - Verify: open app → More → ASC Accounts → swipe-delete → all data gone
-  - Apple has rejected apps that lack this since 2022 (Guideline 5.1.1(v))
-  - Optional but recommended: add a "Delete all data" button somewhere obvious
+- [x] **Account deletion path is functional**
+  - Single button: More → DANGER ZONE → Erase all data
+  - Wipes Keychain (.p8s + RC secrets), SQLite, MMKV, scheduled notifications, RevenueCat subscriber alias, worker push registration, and the widget App Group
+  - Routes back to onboarding when complete
+  - Documented for reviewers in `REVIEW_NOTES.md` → "Account deletion" section
+  - Apple has rejected apps that lack this since 2022 (Guideline 5.1.1(v)) — this implementation removes that risk
 - [ ] **Production APNs (not sandbox) is wired up and verified end-to-end**
   - `app.json` already has `aps-environment: production` ✅
   - Verify your Cloudflare Worker uses the **production** APNs endpoint, not sandbox
