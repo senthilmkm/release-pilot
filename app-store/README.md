@@ -9,10 +9,11 @@ Everything you need to submit Release Pilot v1.0 to the App Store, in one folder
 | 1 | [`SUBMISSION_CHECKLIST.md`](./SUBMISSION_CHECKLIST.md) | **Start here.** The master pre-flight list — work through it top to bottom. |
 | 2 | [`LISTING.md`](./LISTING.md) | App Store listing fields — copy/paste each section into ASC (subtitle, description, keywords, etc.) |
 | 3 | [`SCREENSHOTS.md`](./SCREENSHOTS.md) | What to capture, in what order, with suggested captions |
-| 4 | [`PRIVACY_POLICY.md`](./PRIVACY_POLICY.md) | Privacy policy — host this at `https://releasepilot.app/privacy` |
+| 4 | [`PRIVACY_POLICY.md`](./PRIVACY_POLICY.md) | Privacy policy (markdown source). Live HTML version: [`../docs/privacy.html`](../docs/privacy.html) → published at `/privacy.html` |
 | 5 | [`TERMS_OF_SERVICE.md`](./TERMS_OF_SERVICE.md) | Terms of Service — host at `https://releasepilot.app/terms` (or skip; Apple's EULA is acceptable as the primary terms) |
 | 6 | [`PRIVACY_NUTRITION.md`](./PRIVACY_NUTRITION.md) | Exact answers for ASC's "App Privacy" questionnaire |
 | 7 | [`REVIEW_NOTES.md`](./REVIEW_NOTES.md) | Notes for Apple's App Review team — paste into "App Review Information → Notes". **HIGH-RISK** — the ASC API key disclosure here is what keeps you from being rejected. |
+| 8 | [`../docs/`](../docs/) | Live marketing site: `index.html`, `privacy.html`, `support.html`. Hosted via GitHub Pages from `/docs`. |
 
 ---
 
