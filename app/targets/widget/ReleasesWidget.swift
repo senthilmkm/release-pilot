@@ -129,16 +129,30 @@ struct ReleasesWidgetView: View {
     /// Renders the count of "in flight" apps (anything that isn't Live
     /// or empty). Solo devs glance at this to see "do I have stuff
     /// happening?".
+    ///
+    /// Label is "WIP" (work in progress) — earlier versions used "LIVE"
+    /// which was misleading: the number counts apps that are NOT yet
+    /// live (submitted/in_review/approved_waiting/approved_scheduled/
+    /// rejected), so "LIVE" implied the opposite of what's counted.
+    ///
+    /// Empty state: when `inFlight == 0` we render a checkmark instead
+    /// of `0 WIP`. Reads as "all clear" on the Lock Screen rather than
+    /// a bare zero, which most users interpret as "broken" / "no data".
     private var lockScreenCircularView: some View {
         let inFlight = apps.filter { isInFlight(stateKey: $0.state) }.count
         return ZStack {
             AccessoryWidgetBackground()
-            VStack(spacing: -2) {
-                Text("\(inFlight)")
-                    .font(.system(size: 22, weight: .bold))
-                Text("LIVE")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.secondary)
+            if inFlight == 0 {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 20, weight: .bold))
+            } else {
+                VStack(spacing: -2) {
+                    Text("\(inFlight)")
+                        .font(.system(size: 22, weight: .bold))
+                    Text("WIP")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
