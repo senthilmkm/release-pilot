@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   FileText,
   HelpCircle,
+  Rocket,
   XCircle,
 } from 'lucide-react-native';
 
@@ -43,15 +44,33 @@ export function SummaryCard({ summary }: Props) {
 }
 
 function headlineFor(s: ChecklistSummary, palette: typeof Colors.light | typeof Colors.dark) {
-  // No draft in progress → everything is NA (nothing was checkable).
-  // Render a neutral "no draft yet" state instead of red blocker copy.
-  if (s.fail === 0 && s.warn === 0 && s.unknown === 0 && s.pass === 0 && s.na > 0) {
+  // No editable draft → switch to neutral "no pending submission" copy
+  // regardless of how many app-level rules happen to pass. Without this
+  // an already-live app would falsely show "Ready to submit" because its
+  // Content Rights / Category / Privacy URL all pass on stored metadata.
+  if (!s.hasDraft) {
+    if (s.isFirstVersion) {
+      // First-time submitter — nothing has ever shipped. Nudge them to
+      // create their v1.0 draft in ASC.
+      return {
+        fg: palette.infoFg,
+        bg: palette.infoBg,
+        Icon: FileText,
+        headline: 'No draft yet',
+        sub: 'Create a new version in App Store Connect when you\'re ready to ship v1.0.',
+      };
+    }
+    // Returning developer between releases. Celebrate the live app and
+    // mention that the app-level metadata they have is in good shape.
     return {
-      fg: palette.infoFg,
-      bg: palette.infoBg,
-      Icon: FileText,
-      headline: 'Nothing to check yet',
-      sub: 'This app has no draft version in progress. Create one in ASC when you\'re ready to ship.',
+      fg: palette.successFg,
+      bg: palette.successBg,
+      Icon: Rocket,
+      headline: 'Live on the App Store',
+      sub:
+        s.pass > 0
+          ? `No pending update · ${s.pass} app-level check${s.pass === 1 ? '' : 's'} passing.`
+          : 'No pending update. Tap "Open in ASC" when you\'re ready to ship the next version.',
     };
   }
   if (s.fail > 0) {

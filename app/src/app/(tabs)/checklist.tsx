@@ -140,14 +140,26 @@ export default function ChecklistTab() {
     );
   }
 
-  const summary = checklist.data ? summarizeChecklist(checklist.data.results) : null;
-  // When the app has no draft, every rule short-circuits to NA. We use
-  // this to switch the action row from "Re-run" to "Open in ASC" so the
-  // user can create a draft (the actual thing they need to do).
-  const hasNoDraft = Boolean(
-    summary && summary.fail === 0 && summary.warn === 0 && summary.unknown === 0 && summary.pass === 0 && summary.na > 0,
-  );
+  const summary = checklist.data
+    ? summarizeChecklist(checklist.data.results, checklist.data.ctx)
+    : null;
+  // When the app has no editable draft, swap the action button from
+  // "Re-run" to "Open in ASC" so the user can create a draft (the
+  // actual thing they need to do). hasDraft comes from the summary
+  // which derives it from ctx.version — not from rule pass-counts,
+  // because app-level rules can pass even without a draft.
+  const hasNoDraft = Boolean(summary && !summary.hasDraft);
   const draftAscLink = checklist.data?.results?.[0]?.ascDeepLink;
+
+  // When there's no draft, hide the per-version rules (all NA) but
+  // still surface the 4 app-level rules + the IAP rule, since those
+  // reflect real app metadata the user might want to verify before
+  // their next submission. When a draft DOES exist, show everything.
+  const visibleRules = useMemo(() => {
+    if (!checklist.data) return [];
+    if (!hasNoDraft) return checklist.data.results;
+    return checklist.data.results.filter((r) => r.severity !== 'na');
+  }, [checklist.data, hasNoDraft]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
@@ -257,15 +269,24 @@ export default function ChecklistTab() {
             </>
           )}
 
-          {/* When there's no draft, hide the per-rule rows entirely — they
-              would all just say "Not applicable" and add noise. The
-              summary card + action row already communicates the state. */}
-          {checklist.data && !hasNoDraft && (
-            <View style={styles.rulesList}>
-              {checklist.data.results.map((rule) => (
-                <RuleRow key={rule.id} rule={rule} />
-              ))}
-            </View>
+          {/* When there's no draft, hide per-version NA rows but still
+              show the app-level + IAP rules so the user can verify their
+              stored metadata is in good shape before the next submission.
+              When a draft DOES exist, show every rule (incl. NA ones)
+              so the user has full visibility into what was checked. */}
+          {checklist.data && visibleRules.length > 0 && (
+            <>
+              {hasNoDraft && (
+                <ThemedText style={[TypeScale.captionEmph, styles.sectionLabel, { color: palette.textTertiary }]}>
+                  App metadata (carries across submissions)
+                </ThemedText>
+              )}
+              <View style={styles.rulesList}>
+                {visibleRules.map((rule) => (
+                  <RuleRow key={rule.id} rule={rule} />
+                ))}
+              </View>
+            </>
           )}
         </ScrollView>
       )}
@@ -319,5 +340,11 @@ const styles = StyleSheet.create({
   },
   rulesList: {
     gap: Spacing.two,
+  },
+  sectionLabel: {
+    marginTop: Spacing.two,
+    marginBottom: -Spacing.one,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

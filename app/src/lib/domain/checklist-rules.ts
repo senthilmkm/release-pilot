@@ -764,9 +764,26 @@ export type ChecklistSummary = {
   unknown: number;
   na: number;
   overallSeverity: RuleSeverity;
+  /**
+   * Whether there's an editable version draft on this app. False when the
+   * app has no `PREPARE_FOR_SUBMISSION` or `DEVELOPER_REJECTED` version
+   * (e.g. a live app with no pending update). The summary card switches
+   * to neutral "nothing to submit" copy in that case.
+   */
+  hasDraft: boolean;
+  /**
+   * Whether this is the app's very first submission attempt (no prior
+   * version has ever been LIVE or REPLACED). Used to distinguish:
+   *  - first-time submitter (encourage creating a draft)
+   *  - returning developer between releases (celebrate the live app)
+   */
+  isFirstVersion: boolean;
 };
 
-export function summarizeChecklist(results: RuleResult[]): ChecklistSummary {
+export function summarizeChecklist(
+  results: RuleResult[],
+  ctx?: Pick<ChecklistContext, 'version' | 'isFirstVersion'>,
+): ChecklistSummary {
   const out = { total: results.length, pass: 0, warn: 0, fail: 0, unknown: 0, na: 0 };
   for (const r of results) {
     if (r.severity === 'pass') out.pass++;
@@ -780,5 +797,11 @@ export function summarizeChecklist(results: RuleResult[]): ChecklistSummary {
     : out.warn > 0 ? 'warn'
     : out.unknown > 0 ? 'unknown'
     : 'pass';
-  return { ...out, overallSeverity };
+  // hasDraft: prefer the explicit ctx signal; fall back to inferring from
+  // the draft-exists rule for callers that only have the results array.
+  const hasDraft = ctx
+    ? ctx.version !== null
+    : results.find((r) => r.id === 'draft-exists')?.severity !== 'na';
+  const isFirstVersion = ctx?.isFirstVersion ?? false;
+  return { ...out, overallSeverity, hasDraft, isFirstVersion };
 }

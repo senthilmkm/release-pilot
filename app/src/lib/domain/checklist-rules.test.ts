@@ -231,12 +231,17 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
     subscriptionProducts: [],
   });
   const results = runChecklist(ctx);
-  const summary = summarizeChecklist(results);
+  const summary = summarizeChecklist(results, ctx);
   ok('no-draft: per-version rules are NA', results.find((r) => r.id === 'description')?.severity === 'na');
   ok('no-draft: no fails surface',         summary.fail === 0);
   ok('no-draft: app-level rules still pass',
     results.find((r) => r.id === 'content-rights')?.severity === 'pass' &&
     results.find((r) => r.id === 'category')?.severity === 'pass');
+  ok('no-draft: summary.hasDraft is false',  summary.hasDraft === false);
+  // Without ctx, hasDraft is inferred from the draft-exists rule's NA
+  // severity — should match the ctx-derived value.
+  ok('no-draft: hasDraft inferable without ctx',
+    summarizeChecklist(results).hasDraft === false);
 }
 
 // ---------------------------------------------------------------------------
@@ -569,6 +574,54 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
   const summary = summarizeChecklist(runChecklist(ctx));
   ok('regression: first submission + broken IAP + no Content Rights → fail',
     summary.overallSeverity === 'fail' && summary.fail >= 2);
+}
+
+// ---------------------------------------------------------------------------
+// summarizeChecklist — hasDraft + isFirstVersion flags
+// ---------------------------------------------------------------------------
+
+{
+  // BUG FIX (post-15-rules): an app with no draft + all app-level
+  // metadata set was producing { fail: 0, warn: 0, unknown: 0, pass: 4 }
+  // which made the screen render "Ready to submit". Now hasDraft comes
+  // from ctx.version directly, decoupled from pass-counts.
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'READY_TO_SUBMIT'),
+      makeSub('release_pilot_pro_yearly', 'READY_TO_SUBMIT'),
+    ],
+    // Live app with prior shipped version (not isFirstVersion)
+    isFirstVersion: false,
+  });
+  const summary = summarizeChecklist(runChecklist(ctx), ctx);
+  ok('regression: live app + passing app-level rules → hasDraft false',
+    summary.hasDraft === false && summary.pass > 0);
+  ok('regression: live app → isFirstVersion false',
+    summary.isFirstVersion === false);
+}
+
+{
+  // First-time submitter with no draft yet (e.g., they just connected
+  // their key but haven't created the v1.0 version in ASC).
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    subscriptionProducts: [],
+    isFirstVersion: true,
+  });
+  const summary = summarizeChecklist(runChecklist(ctx), ctx);
+  ok('first-time, no draft: hasDraft false + isFirstVersion true',
+    summary.hasDraft === false && summary.isFirstVersion === true);
+}
+
+{
+  // With a real draft, hasDraft is true.
+  const summary = summarizeChecklist(runChecklist(makeCtx()), makeCtx());
+  ok('with draft: hasDraft is true', summary.hasDraft === true);
 }
 
 // ---------------------------------------------------------------------------
