@@ -625,6 +625,121 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 }
 
 // ---------------------------------------------------------------------------
+// Drift-after-launch: live app + app-level metadata gone bad
+// ---------------------------------------------------------------------------
+//
+// Simulates the user-reported "noise" concern: the rule list should only
+// surface when something genuinely needs the user's attention. These tests
+// pin the data-side contract that the SummaryCard / screen relies on.
+// ---------------------------------------------------------------------------
+
+{
+  // Live app + all app-level metadata is clean.
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    isFirstVersion: false,
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'READY_TO_SUBMIT'),
+      makeSub('release_pilot_pro_yearly', 'READY_TO_SUBMIT'),
+    ],
+  });
+  const results = runChecklist(ctx);
+  const summary = summarizeChecklist(results, ctx);
+  const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
+  ok('live + clean: zero rows to show', nonNaNonPass.length === 0);
+  ok('live + clean: no fail/warn/unknown', summary.fail === 0 && summary.warn === 0 && summary.unknown === 0);
+  ok('live + clean: hasDraft false + pass > 0', summary.hasDraft === false && summary.pass > 0);
+}
+
+{
+  // Live app + Privacy Policy URL got cleared in ASC after launch.
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    isFirstVersion: false,
+    appInfoLocalization: makeAppInfoLoc({ privacyPolicyUrl: '' }),
+    subscriptionProducts: [],
+  });
+  const results = runChecklist(ctx);
+  const summary = summarizeChecklist(results, ctx);
+  const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
+  ok('drift: surfaces exactly the broken privacy-url rule',
+    nonNaNonPass.length === 1 && nonNaNonPass[0]?.id === 'privacy-policy-url');
+  ok('drift: summary registers 1 fail',
+    summary.fail === 1 && summary.hasDraft === false);
+}
+
+{
+  // Live app + subscription product slipped into MISSING_METADATA
+  // (e.g., a price tier was deprecated by Apple).
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    isFirstVersion: false,
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'MISSING_METADATA'),
+      makeSub('release_pilot_pro_yearly', 'READY_TO_SUBMIT'),
+    ],
+  });
+  const results = runChecklist(ctx);
+  const summary = summarizeChecklist(results, ctx);
+  const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
+  ok('drift: surfaces only the broken subs rule',
+    nonNaNonPass.length === 1 && nonNaNonPass[0]?.id === 'subscription-products');
+  ok('drift: subs rule is fail', nonNaNonPass[0]?.severity === 'fail');
+}
+
+{
+  // Partial API failure during app-level fetch (e.g., 403 on listAppInfos
+  // but getApp + subscriptionGroups succeeded). The 2 appInfo-derived
+  // rules degrade to unknown — we want them surfaced so the user can
+  // verify manually in ASC.
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    isFirstVersion: false,
+    appInfo: null,
+    primaryCategory: null,
+    appInfoLocalization: null,
+  });
+  const results = runChecklist(ctx);
+  const summary = summarizeChecklist(results, ctx);
+  const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
+  ok('partial API-fail: surfaces the 2 unknown rows for manual verify',
+    nonNaNonPass.length === 2 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('partial API-fail: summary.unknown === 2',
+    summary.unknown === 2 && summary.hasDraft === false);
+}
+
+{
+  // Total app-level fetch failure (all 3 endpoints 403). Every app-level
+  // rule that has data dependencies degrades to unknown.
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    isFirstVersion: false,
+    app: null,
+    appInfo: null,
+    primaryCategory: null,
+    appInfoLocalization: null,
+    subscriptionProducts: null,
+  });
+  const results = runChecklist(ctx);
+  const summary = summarizeChecklist(results, ctx);
+  const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
+  ok('full API-fail: surfaces 4 unknowns (content + category + privacy + subs)',
+    nonNaNonPass.length === 4 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('full API-fail: summary.unknown === 4',
+    summary.unknown === 4);
+}
+
+// ---------------------------------------------------------------------------
 // summarizeChecklist — overall severity priority
 // ---------------------------------------------------------------------------
 

@@ -60,17 +60,44 @@ function headlineFor(s: ChecklistSummary, palette: typeof Colors.light | typeof 
         sub: 'Create a new version in App Store Connect when you\'re ready to ship v1.0.',
       };
     }
-    // Returning developer between releases. Celebrate the live app and
-    // mention that the app-level metadata they have is in good shape.
+    // Returning developer between releases. The app-level metadata still
+    // gets checked because settings CAN drift after launch (subscription
+    // slips into MISSING_METADATA, someone removes the Privacy URL, etc.).
+    // We only surface the section when something actually needs attention.
+    if (s.fail > 0) {
+      return {
+        fg: palette.destructive,
+        bg: palette.destructiveMuted,
+        Icon: XCircle,
+        headline: `${s.fail} app-level blocker${s.fail === 1 ? '' : 's'}`,
+        sub: 'Settings drifted since launch. Fix before your next submission.',
+      };
+    }
+    if (s.warn > 0) {
+      return {
+        fg: palette.warningFg,
+        bg: palette.warningBg,
+        Icon: AlertTriangle,
+        headline: `${s.warn} app-level warning${s.warn === 1 ? '' : 's'}`,
+        sub: 'Worth reviewing before your next submission.',
+      };
+    }
+    if (s.unknown > 0) {
+      return {
+        fg: palette.infoFg,
+        bg: palette.infoBg,
+        Icon: HelpCircle,
+        headline: `${s.unknown} to verify manually`,
+        sub: "We couldn't read some of your app-level settings — please check in ASC.",
+      };
+    }
+    // Everything clean — celebrate the live app, hide the rule list.
     return {
       fg: palette.successFg,
       bg: palette.successBg,
       Icon: Rocket,
       headline: 'Live on the App Store',
-      sub:
-        s.pass > 0
-          ? `No pending update · ${s.pass} app-level check${s.pass === 1 ? '' : 's'} passing.`
-          : 'No pending update. Tap "Open in ASC" when you\'re ready to ship the next version.',
+      sub: 'No pending update. Tap "Open in ASC" when you\'re ready to ship.',
     };
   }
   if (s.fail > 0) {

@@ -151,14 +151,19 @@ export default function ChecklistTab() {
   const hasNoDraft = Boolean(summary && !summary.hasDraft);
   const draftAscLink = checklist.data?.results?.[0]?.ascDeepLink;
 
-  // When there's no draft, hide the per-version rules (all NA) but
-  // still surface the 4 app-level rules + the IAP rule, since those
-  // reflect real app metadata the user might want to verify before
-  // their next submission. When a draft DOES exist, show everything.
+  // When there's no draft AND every app-level rule passes, hide the
+  // rule list entirely — the summary card already says "X passing" and
+  // a list of 4 green checkmarks is just noise. We only surface rows
+  // when something needs the user's attention (drift after launch).
+  //
+  // When a draft DOES exist, show every rule (incl. NA ones) so the
+  // user has full visibility into what was checked before submitting.
   const visibleRules = useMemo(() => {
     if (!checklist.data) return [];
     if (!hasNoDraft) return checklist.data.results;
-    return checklist.data.results.filter((r) => r.severity !== 'na');
+    return checklist.data.results.filter(
+      (r) => r.severity !== 'na' && r.severity !== 'pass',
+    );
   }, [checklist.data, hasNoDraft]);
 
   return (
@@ -278,7 +283,7 @@ export default function ChecklistTab() {
             <>
               {hasNoDraft && (
                 <ThemedText style={[TypeScale.captionEmph, styles.sectionLabel, { color: palette.textTertiary }]}>
-                  App metadata (carries across submissions)
+                  App metadata needs attention
                 </ThemedText>
               )}
               <View style={styles.rulesList}>
