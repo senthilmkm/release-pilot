@@ -440,12 +440,19 @@ export function useSubmitReplyMutation() {
 /**
  * Run the pre-submit checklist for one app.
  *
- * Orchestrates 3 sub-fetches: app versions (find the editable draft),
- * its localizations, and screenshot sets per primary localization.
- * Feeds the assembled context to the pure `runChecklist`.
+ * Orchestrates several sub-fetches:
+ *  - app versions (find the editable draft + its build)
+ *  - version localizations + screenshot sets
+ *  - the App entity (for `contentRightsDeclaration`)
+ *  - App Infos + categories + AppInfoLocalizations (category + privacy URL)
+ *  - subscription groups + subscriptions (IAP readiness)
+ *
+ * App-level + IAP fetches use `Promise.allSettled` so a single endpoint
+ * failure (typically 403 from a low-permission key) only downgrades the
+ * affected rule to `unknown` — it never blanks the whole checklist.
  *
  * Cache strategy: TanStack Query in-memory only. Checklist data is
- * cheap (≤4 round-trips) and users only run it when they're about to
+ * cheap (≤8 round-trips) and users only run it when they're about to
  * submit — staleness is fine, freshness on tap is what matters.
  */
 export function useChecklistQuery(args: {
@@ -458,8 +465,29 @@ export function useChecklistQuery(args: {
     queryFn: async (): Promise<{ ctx: ChecklistContext; results: RuleResult[] }> => {
       const client = makeClient(args.issuerId, args.keyId);
 
-      // 1. List versions — find the editable one (drafting or developer-rejected)
-      const { versions, builds } = await client.listAppStoreVersions(args.appId);
+      // ----- Stage 1: parallel kick-offs we can fan out immediately -----
+      // versions, app entity, app infos, subscription groups all keyed
+      // by appId. Run together to keep the total wall-clock low.
+      const [
+        versionsResult,
+        appResult,
+        appInfosResult,
+        subscriptionsResult,
+      ] = await Promise.allSettled([
+        client.listAppStoreVersions(args.appId),
+        client.getApp(args.appId),
+        client.listAppInfos(args.appId),
+        client.listSubscriptionGroupsWithSubs(args.appId),
+      ]);
+
+      // versions is the only fetch that's truly required — if it failed,
+      // re-throw so the screen renders its standard error banner. The
+      // other endpoints degrade to null/unknown gracefully (handled below).
+      if (versionsResult.status === 'rejected') {
+        throw versionsResult.reason;
+      }
+
+      const { versions, builds } = versionsResult.value;
       const editable =
         versions.find((v) => {
           const s = v.attributes.appStoreState ?? '';
@@ -473,31 +501,55 @@ export function useChecklistQuery(args: {
         return s === 'READY_FOR_SALE' || s === 'REPLACED_WITH_NEW_VERSION';
       });
 
-      // 2. Resolve build, if any
+      // Resolve build, if any
       const buildId = editable?.relationships?.build?.data?.id;
       const build = buildId ? builds.get(buildId) ?? null : null;
 
-      // Bail early when there's no editable version — we can't run any rules
-      if (!editable) {
-        const ctx: ChecklistContext = {
-          appId: args.appId,
-          version: null,
-          build: null,
-          localizations: [],
-          screenshotSetsByLocalization: new Map(),
-          isFirstVersion,
-        };
-        return { ctx, results: runChecklist(ctx) };
+      // ----- App-level extras (best-effort) -----
+      const app = appResult.status === 'fulfilled' ? appResult.value : null;
+
+      let appInfo: ChecklistContext['appInfo'] = null;
+      let primaryCategory: ChecklistContext['primaryCategory'] = null;
+      let appInfoLocalization: ChecklistContext['appInfoLocalization'] = null;
+      if (appInfosResult.status === 'fulfilled') {
+        const { appInfos, categories, localizations: aiLocs } = appInfosResult.value;
+        // Prefer the editable (PREPARE_FOR_SUBMISSION) bundle; fall back to
+        // the live one (READY_FOR_DISTRIBUTION) if no draft.
+        appInfo =
+          appInfos.find((i) => i.attributes.state === 'PREPARE_FOR_SUBMISSION') ??
+          appInfos.find((i) => i.attributes.state === 'READY_FOR_DISTRIBUTION') ??
+          appInfos[0] ??
+          null;
+        if (appInfo) {
+          const catId = appInfo.relationships?.primaryCategory?.data?.id;
+          primaryCategory = catId ? categories.get(catId) ?? null : null;
+
+          // Pick the en-US AppInfoLocalization if available — that's where
+          // Privacy Policy URL almost always lives.
+          const locIds = appInfo.relationships?.appInfoLocalizations?.data ?? [];
+          const locs = locIds
+            .map((p) => aiLocs.get(p.id))
+            .filter((x): x is NonNullable<typeof x> => x !== undefined);
+          appInfoLocalization =
+            locs.find((l) => l.attributes.locale === 'en-US') ?? locs[0] ?? null;
+        }
       }
 
-      // 3. Fetch localizations + screenshot sets in parallel
-      const localizations = await client.listVersionLocalizations(editable.id);
+      const subscriptionProducts: ChecklistContext['subscriptionProducts'] =
+        subscriptionsResult.status === 'fulfilled'
+          ? Array.from(subscriptionsResult.value.subs.values())
+          : null;
 
+      // ----- Stage 2: per-version sub-fetches that depend on `editable` -----
+      let localizations: ChecklistContext['localizations'] = [];
       const screenshotSetsByLocalization = new Map();
-      const enUS = localizations.find((l) => l.attributes.locale === 'en-US') ?? localizations[0];
-      if (enUS) {
-        const sets = await client.listScreenshotSets(enUS.id);
-        screenshotSetsByLocalization.set(enUS.id, sets);
+      if (editable) {
+        localizations = await client.listVersionLocalizations(editable.id);
+        const enUS = localizations.find((l) => l.attributes.locale === 'en-US') ?? localizations[0];
+        if (enUS) {
+          const sets = await client.listScreenshotSets(enUS.id);
+          screenshotSetsByLocalization.set(enUS.id, sets);
+        }
       }
 
       const ctx: ChecklistContext = {
@@ -507,6 +559,11 @@ export function useChecklistQuery(args: {
         localizations,
         screenshotSetsByLocalization,
         isFirstVersion,
+        app,
+        appInfo,
+        primaryCategory,
+        appInfoLocalization,
+        subscriptionProducts,
       };
 
       return { ctx, results: runChecklist(ctx) };

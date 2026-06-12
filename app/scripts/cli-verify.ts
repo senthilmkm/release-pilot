@@ -55,9 +55,16 @@ import type {
   ListCustomerReviewsResponse,
   ListScreenshotSetsResponse,
   ListVersionLocalizationsResponse,
+  ListAppInfosResponse,
+  ListSubscriptionGroupsResponse,
+  ASCApp,
+  ASCAppCategory,
+  ASCAppInfo,
+  ASCAppInfoLocalization,
   ASCBuild,
   ASCCustomerReviewResponse,
   ASCResource,
+  ASCSubscription,
 } from '../src/lib/api/asc-types';
 import {
   deriveLatestSnapshot,
@@ -297,6 +304,58 @@ async function listScreenshotSets(
       `?limit=20&fields[appScreenshotSets]=screenshotDisplayType`,
     jwt,
   );
+}
+
+async function getApp(appId: string, jwt: string): Promise<ASCApp> {
+  const data = await ascGet<{ data: ASCApp }>(
+    `/v1/apps/${encodeURIComponent(appId)}` +
+      `?fields[apps]=name,bundleId,sku,primaryLocale,contentRightsDeclaration,subscriptionStatusUrl`,
+    jwt,
+  );
+  return data.data;
+}
+
+async function listAppInfos(
+  appId: string,
+  jwt: string,
+): Promise<{
+  appInfos: ASCAppInfo[];
+  categories: Map<string, ASCAppCategory>;
+  localizations: Map<string, ASCAppInfoLocalization>;
+}> {
+  const data = await ascGet<ListAppInfosResponse>(
+    `/v1/apps/${encodeURIComponent(appId)}/appInfos` +
+      `?limit=10&include=primaryCategory,secondaryCategory,appInfoLocalizations` +
+      `&fields[appInfos]=state,primaryCategory,secondaryCategory,appInfoLocalizations` +
+      `&fields[appCategories]=` +
+      `&fields[appInfoLocalizations]=locale,name,subtitle,privacyPolicyUrl,privacyChoicesUrl,privacyPolicyText`,
+    jwt,
+  );
+  const categories = new Map<string, ASCAppCategory>();
+  const localizations = new Map<string, ASCAppInfoLocalization>();
+  for (const r of (data.included ?? []) as ASCResource[]) {
+    if (r.type === 'appCategories') categories.set(r.id, r as ASCAppCategory);
+    if (r.type === 'appInfoLocalizations') localizations.set(r.id, r as ASCAppInfoLocalization);
+  }
+  return { appInfos: data.data, categories, localizations };
+}
+
+async function listSubscriptionGroupsWithSubs(
+  appId: string,
+  jwt: string,
+): Promise<{ subs: Map<string, ASCSubscription> }> {
+  const data = await ascGet<ListSubscriptionGroupsResponse>(
+    `/v1/apps/${encodeURIComponent(appId)}/subscriptionGroups` +
+      `?limit=20&include=subscriptions` +
+      `&fields[subscriptionGroups]=referenceName,subscriptions` +
+      `&fields[subscriptions]=name,productId,state`,
+    jwt,
+  );
+  const subs = new Map<string, ASCSubscription>();
+  for (const r of (data.included ?? []) as ASCResource[]) {
+    if (r.type === 'subscriptions') subs.set(r.id, r as ASCSubscription);
+  }
+  return { subs };
 }
 
 // ---------------------------------------------------------------------------
@@ -539,18 +598,72 @@ async function main(): Promise<void> {
     }),
   );
 
+  // Fetch app-level extras (app entity + appInfo + subscription groups) in
+  // parallel — these feed the 5 newer rules. They use Promise.allSettled
+  // so a 403 on any one of them just degrades the affected rule to
+  // `unknown` without breaking the whole run.
+  const targetAppId = target ? target.app.id : appsResponse.data[0]?.id ?? '';
+  const extras = await Promise.allSettled(
+    targetAppId
+      ? [
+          getApp(targetAppId, jwt),
+          listAppInfos(targetAppId, jwt),
+          listSubscriptionGroupsWithSubs(targetAppId, jwt),
+        ]
+      : [Promise.reject('no app'), Promise.reject('no app'), Promise.reject('no app')],
+  );
+  const fetchedApp = extras[0]?.status === 'fulfilled' ? extras[0].value as ASCApp : null;
+  const appInfosBundle =
+    extras[1]?.status === 'fulfilled'
+      ? (extras[1].value as Awaited<ReturnType<typeof listAppInfos>>)
+      : null;
+  const fetchedAppInfo =
+    appInfosBundle?.appInfos.find((i) => i.attributes.state === 'PREPARE_FOR_SUBMISSION') ??
+    appInfosBundle?.appInfos.find((i) => i.attributes.state === 'READY_FOR_DISTRIBUTION') ??
+    appInfosBundle?.appInfos[0] ??
+    null;
+  const fetchedPrimaryCategory = (() => {
+    if (!fetchedAppInfo || !appInfosBundle) return null;
+    const catId = fetchedAppInfo.relationships?.primaryCategory?.data?.id;
+    return catId ? appInfosBundle.categories.get(catId) ?? null : null;
+  })();
+  const fetchedAppInfoLoc = (() => {
+    if (!fetchedAppInfo || !appInfosBundle) return null;
+    const locIds = fetchedAppInfo.relationships?.appInfoLocalizations?.data ?? [];
+    const locs = locIds
+      .map((p) => appInfosBundle.localizations.get(p.id))
+      .filter((x): x is ASCAppInfoLocalization => x !== undefined);
+    return locs.find((l) => l.attributes.locale === 'en-US') ?? locs[0] ?? null;
+  })();
+  const fetchedSubProducts =
+    extras[2]?.status === 'fulfilled'
+      ? Array.from((extras[2].value as { subs: Map<string, ASCSubscription> }).subs.values())
+      : null;
+
+  if (extras[0]?.status === 'rejected') warn('getApp failed (rule will degrade to unknown)');
+  if (extras[1]?.status === 'rejected') warn('listAppInfos failed (3 rules will degrade to unknown)');
+  if (extras[2]?.status === 'rejected') warn('listSubscriptionGroups failed (sub rule will degrade to unknown)');
+
   if (!target) {
     info('No app has an editable draft (PREPARE_FOR_SUBMISSION or DEVELOPER_REJECTED).');
     info('The checklist screen will render the neutral "Nothing to check yet" card with an "Open in ASC" CTA.');
     // Still exercise the rule engine on a no-version context to prove the wiring
     const ctx: ChecklistContext = {
-      appId: appsResponse.data[0]?.id ?? '',
+      appId: targetAppId,
       version: null, build: null, localizations: [],
       screenshotSetsByLocalization: new Map(), isFirstVersion: true,
+      app: fetchedApp,
+      appInfo: fetchedAppInfo,
+      primaryCategory: fetchedPrimaryCategory,
+      appInfoLocalization: fetchedAppInfoLoc,
+      subscriptionProducts: fetchedSubProducts,
     };
     const results = runChecklist(ctx);
     const summary = summarizeChecklist(results);
-    ok(`Empty-state rule engine: ${summary.fail} fail · ${summary.na} N/A (expected: 0 fail, 10 N/A)`);
+    // Per-version rules degrade to NA; app-level rules still surface
+    // pass/fail/unknown based on the fetched app + appInfo. Subs rule is
+    // NA if app has no IAP, otherwise pass/fail.
+    ok(`Empty-state rule engine: ${summary.fail} fail · ${summary.warn} warn · ${summary.pass} pass · ${summary.unknown} unknown · ${summary.na} N/A (of ${summary.total})`);
   } else {
     const editable = target.versions.find((v) => {
       const s = v.attributes.appStoreState ?? '';
@@ -576,6 +689,11 @@ async function main(): Promise<void> {
       localizations: locsResp.data,
       screenshotSetsByLocalization: enUS ? new Map([[enUS.id, screenshotSets]]) : new Map(),
       isFirstVersion,
+      app: fetchedApp,
+      appInfo: fetchedAppInfo,
+      primaryCategory: fetchedPrimaryCategory,
+      appInfoLocalization: fetchedAppInfoLoc,
+      subscriptionProducts: fetchedSubProducts,
     };
 
     const results = runChecklist(ctx);
@@ -1047,7 +1165,8 @@ async function main(): Promise<void> {
   console.log(`${DIM}           timeline projection, state-machine, latest-snapshot priority.${RESET}`);
   console.log(`${DIM}  Phase 3: customerReviews fetch (with permission-error tolerance),${RESET}`);
   console.log(`${DIM}           review projection, reply-state derivation, counts/buckets.${RESET}`);
-  console.log(`${DIM}  Phase 4: localizations + screenshot-sets fetch, 10-rule engine,${RESET}`);
+  console.log(`${DIM}  Phase 4: localizations + screenshot-sets + appInfo + subscriptionGroups${RESET}`);
+  console.log(`${DIM}           fetch, 15-rule engine (per-version + app-level + IAP),${RESET}`);
   console.log(`${DIM}           severity priority, summary projection.${RESET}`);
   console.log(`${DIM}  Phase 5: SharedAppState projection + Live Activity sync deriver${RESET}`);
   console.log(`${DIM}           (start/update/end transitions verified against live ASC data).${RESET}`);

@@ -1,6 +1,9 @@
 import { ASCError, toASCError } from './asc-errors';
 import type {
   ASCApp,
+  ASCAppCategory,
+  ASCAppInfo,
+  ASCAppInfoLocalization,
   ASCAppScreenshotSet,
   ASCAppStoreVersion,
   ASCAppStoreVersionLocalization,
@@ -8,10 +11,14 @@ import type {
   ASCCustomerReview,
   ASCCustomerReviewResponse,
   ASCResource,
+  ASCSubscription,
+  ASCSubscriptionGroup,
+  ListAppInfosResponse,
   ListAppsResponse,
   ListAppStoreVersionsResponse,
   ListCustomerReviewsResponse,
   ListScreenshotSetsResponse,
+  ListSubscriptionGroupsResponse,
   ListVersionLocalizationsResponse,
 } from './asc-types';
 import { getJwtLazy, mintJwt, type JwtCredentials } from '@/lib/auth/jwt-cache';
@@ -203,6 +210,82 @@ export class ASCClient {
       `&fields[appScreenshotSets]=screenshotDisplayType`;
     const data = await this.fetch<ListScreenshotSetsResponse>(path);
     return data.data;
+  }
+
+  /**
+   * GET /v1/apps/{id} — fetch one app with the full attribute set we need
+   * for app-level checklist rules. `listApps` deliberately requests a
+   * narrow projection (no `contentRightsDeclaration`) to keep that hot-
+   * path response small; this method fetches everything we need for the
+   * one app the user just selected.
+   */
+  async getApp(appId: string): Promise<ASCApp> {
+    const data = await this.fetch<{ data: ASCApp }>(
+      `/v1/apps/${encodeURIComponent(appId)}` +
+        `?fields[apps]=name,bundleId,sku,primaryLocale,contentRightsDeclaration,subscriptionStatusUrl`,
+    );
+    return data.data;
+  }
+
+  /**
+   * GET /v1/apps/{id}/appInfos
+   *
+   * Returns the app-level metadata bundles (one per state — usually
+   * `READY_FOR_DISTRIBUTION` for live + `PREPARE_FOR_SUBMISSION` for the
+   * editable draft). We include both categories AND the en-US-or-first
+   * locale of `appInfoLocalizations` so a single round-trip covers the
+   * checklist rules for Category and Privacy Policy URL.
+   */
+  async listAppInfos(
+    appId: string,
+  ): Promise<{
+    appInfos: ASCAppInfo[];
+    categories: Map<string, ASCAppCategory>;
+    localizations: Map<string, ASCAppInfoLocalization>;
+  }> {
+    const path =
+      `/v1/apps/${encodeURIComponent(appId)}/appInfos` +
+      `?limit=10` +
+      `&include=primaryCategory,secondaryCategory,appInfoLocalizations` +
+      `&fields[appInfos]=state,primaryCategory,secondaryCategory,appInfoLocalizations` +
+      `&fields[appCategories]=` +
+      `&fields[appInfoLocalizations]=locale,name,subtitle,privacyPolicyUrl,privacyChoicesUrl,privacyPolicyText`;
+    const data = await this.fetch<ListAppInfosResponse>(path);
+    const categories = collectIncluded<ASCAppCategory>(data.included ?? [], 'appCategories');
+    const localizations = collectIncluded<ASCAppInfoLocalization>(
+      data.included ?? [],
+      'appInfoLocalizations',
+    );
+    return { appInfos: data.data, categories, localizations };
+  }
+
+  /**
+   * GET /v1/apps/{id}/subscriptionGroups
+   *
+   * Returns every subscription group + every product in those groups, so
+   * the checklist's `subscription-products-ready` rule can verify that
+   * no product is still `MISSING_METADATA`.
+   *
+   * If the app has no subscriptions, this returns `{ groups: [], subs: new Map() }`
+   * — caller handles "no subs at all" as `na` (not a failure).
+   *
+   * Permissions: this endpoint requires the API key to have the "Admin"
+   * or "App Manager" role. Lower-permission keys 403; we surface that
+   * as a friendly `unknown` so the user can manually verify in ASC.
+   */
+  async listSubscriptionGroupsWithSubs(appId: string): Promise<{
+    groups: ASCSubscriptionGroup[];
+    subs: Map<string, ASCSubscription>;
+  }> {
+    const path =
+      `/v1/apps/${encodeURIComponent(appId)}/subscriptionGroups` +
+      `?limit=20` +
+      `&include=subscriptions` +
+      `&fields[subscriptionGroups]=referenceName,subscriptions` +
+      `&fields[subscriptions]=name,productId,state`;
+    const data = await this.fetch<ListSubscriptionGroupsResponse>(path);
+    const subs = collectIncluded<ASCSubscription>(data.included ?? [], 'subscriptions');
+    return { groups: data.data, subs };
   }
 
   // ---------------------------- internals ----------------------------------

@@ -191,3 +191,85 @@ export type ASCAppScreenshotSet = {
 };
 
 export type ListScreenshotSetsResponse = ASCApiResponse<ASCAppScreenshotSet[]>;
+
+// ----------------------------- /v1/apps/{id}/appInfos ---------------------
+//
+// `AppInfo` is the *app-level* metadata bundle — category, content rights,
+// age rating, etc. These survive across version submissions, but each one
+// has a `state` machine just like AppStoreVersion (`PREPARE_FOR_SUBMISSION`
+// is the editable one; `READY_FOR_DISTRIBUTION` is the currently-live one).
+//
+// Privacy-policy URL is on `AppInfoLocalization`, NOT on AppInfo itself.
+
+export type ASCAppInfo = {
+  type: 'appInfos';
+  id: string;
+  attributes: {
+    /** e.g. PREPARE_FOR_SUBMISSION (editable) | READY_FOR_DISTRIBUTION (live) */
+    state?: string;
+  };
+  relationships?: {
+    primaryCategory?: { data?: { type: 'appCategories'; id: string } | null };
+    secondaryCategory?: { data?: { type: 'appCategories'; id: string } | null };
+    appInfoLocalizations?: { data?: { type: 'appInfoLocalizations'; id: string }[] };
+  };
+};
+
+export type ListAppInfosResponse = ASCApiResponse<ASCAppInfo[]>;
+
+export type ASCAppCategory = {
+  type: 'appCategories';
+  id: string; // e.g. "PRODUCTIVITY" | "UTILITIES" | "DEVELOPER_TOOLS"
+};
+
+export type ASCAppInfoLocalization = {
+  type: 'appInfoLocalizations';
+  id: string;
+  attributes: {
+    locale?: string;
+    name?: string;
+    subtitle?: string;
+    privacyPolicyUrl?: string;
+    privacyChoicesUrl?: string;
+    privacyPolicyText?: string;
+  };
+};
+
+export type ListAppInfoLocalizationsResponse = ASCApiResponse<ASCAppInfoLocalization[]>;
+
+// ----------------------------- /v1/apps/{id}/subscriptionGroups -----------
+//
+// Used by the Checklist rule that warns when any subscription product is
+// still in MISSING_METADATA (Apple won't approve the binary with it).
+
+export type ASCSubscriptionGroup = {
+  type: 'subscriptionGroups';
+  id: string;
+  attributes: {
+    referenceName?: string;
+  };
+  relationships?: {
+    subscriptions?: { data?: { type: 'subscriptions'; id: string }[] };
+  };
+};
+
+export type ASCSubscription = {
+  type: 'subscriptions';
+  id: string;
+  attributes: {
+    name?: string;            // human-readable reference name
+    productId?: string;       // e.g. "release_pilot_pro_monthly"
+    /**
+     * One of:
+     *  MISSING_METADATA  - missing availability / price / localization / screenshot
+     *  READY_TO_SUBMIT   - all required fields filled
+     *  WAITING_FOR_REVIEW, IN_REVIEW
+     *  APPROVED          - approved by Apple
+     *  REJECTED          - rejected by Apple
+     *  DEVELOPER_REMOVED_FROM_SALE
+     */
+    state?: string;
+  };
+};
+
+export type ListSubscriptionGroupsResponse = ASCApiResponse<ASCSubscriptionGroup[]>;

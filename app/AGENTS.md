@@ -92,7 +92,7 @@ worker/                        # Cloudflare Worker push proxy (Phase 6)
 - ✅ Phase 1: real onboarding content + ASC JWT auth + Keychain credentials + app list fetch
 - ✅ Phase 2: Releases v2 (live state badges) + App detail + timeline + SQLite cache + pull-to-refresh
 - ✅ Phase 3: Reviews inbox (filters + counts) + Review detail + Reply composer + Templates + Offline queue
-- ✅ Phase 4: Checklist tab + 10 pre-submit rules + Re-run + ASC web deep-links per failure
+- ✅ Phase 4: Checklist tab + 15 pre-submit rules (per-version + app-level + IAP) + Re-run + ASC web deep-links per failure
 - ✅ Phase 5: Live Activity (ActivityKit) + Widgets (WidgetKit) + App Group bridge + sync deriver
 - ✅ Phase 6: Cloudflare Worker push proxy + APNs + device registration + background-fetch fallback
 - ✅ Phase 7: RevenueCat paywall + 3 free-tier gates + restore + manage subscription
@@ -283,14 +283,15 @@ key to have "Customer Support" or "Admin" role. Keys with only the
 | Localization + Screenshot DTOs       | `src/lib/api/asc-types.ts` (ASCAppStoreVersionLocalization, ASCAppScreenshotSet) |
 | listVersionLocalizations + listScreenshotSets | `src/lib/api/asc-client.ts`                       |
 | Checklist orchestrator query         | `src/lib/api/asc-queries.ts` (`useChecklistQuery`)         |
-| **The 10 pure rules + summary**      | `src/lib/domain/checklist-rules.ts` + `.test.ts` (40 tests)|
+| **The 15 pure rules + summary**      | `src/lib/domain/checklist-rules.ts` + `.test.ts` (73 tests)|
 | Checklist screen                     | `src/app/(tabs)/checklist.tsx`                             |
 | App picker (chips)                   | `src/features/checklist/app-picker.tsx`                    |
 | Per-rule expandable row              | `src/features/checklist/rule-row.tsx`                      |
 | Hero summary card                    | `src/features/checklist/summary-card.tsx`                  |
 
-**The 10 rules** (in display order):
+**The 15 rules** (in display order — 10 per-version + 4 app-level + 1 IAP):
 
+Per-version (run every release, read from `ASCAppStoreVersion` + locs):
 1. `draft-exists`      — A version draft exists in ASC
 2. `build-attached`    — A build is attached (and not INVALID/FAILED/PROCESSING)
 3. `description`       — Description present, 10–4000 chars
@@ -301,6 +302,15 @@ key to have "Customer Support" or "Admin" role. Keys with only the
 8. `whats-new`         — Release notes present (skipped for first version)
 9. `screenshots`       — At least one modern iPhone screenshot set (6.1–6.9")
 10. `encryption`       — Encryption export compliance answered (always `unknown` — API limitation)
+
+App-level (mostly matter for first submission, read from `ASCApp` + `ASCAppInfo`):
+11. `content-rights`       — `contentRightsDeclaration` is set (Yes/No)
+12. `category`             — Primary App Store category chosen
+13. `privacy-policy-url`   — Privacy Policy URL set on App Info localization
+14. `app-privacy-details`  — App Privacy "Data Types" survey filled (always `unknown` — dashboard-only)
+
+IAP (only apps with subscriptions, read from `ASCSubscriptionGroup`):
+15. `subscription-products` — Every sub product is past `MISSING_METADATA`
 
 **Severity ladder.** `fail` (Apple will reject) → `warn` (commonly rejected)
 → `unknown` (can't verify from API alone) → `na` (rule doesn't apply) →
@@ -727,7 +737,7 @@ Verify these by walking through the app once on device:
 - [ ] Pull-to-refresh fires a light haptic
 - [ ] Reviews tab shows aggregated inbox; filters work; reply submits (and
       queues if you toggle airplane mode mid-send)
-- [ ] Checklist tab runs all 10 rules; failures surface ASC deep links
+- [ ] Checklist tab runs all 15 rules; failures surface ASC deep links
 - [ ] More tab: tap "Upgrade to Pro" → paywall opens with live prices
       (NOT $X.XX placeholders); restore button works
 - [ ] Diagnostics screen renders; copy-to-clipboard puts data into Notes

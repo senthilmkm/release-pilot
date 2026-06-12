@@ -6,10 +6,15 @@ import {
   type ChecklistContext,
 } from './checklist-rules';
 import type {
+  ASCApp,
+  ASCAppCategory,
+  ASCAppInfo,
+  ASCAppInfoLocalization,
   ASCAppScreenshotSet,
   ASCAppStoreVersion,
   ASCAppStoreVersionLocalization,
   ASCBuild,
+  ASCSubscription,
 } from '@/lib/api/asc-types';
 
 const tests: { name: string; pass: boolean }[] = [];
@@ -59,6 +64,70 @@ function makeScreenshotSet(displayType: string): ASCAppScreenshotSet {
   };
 }
 
+// App-level fixtures (all-good defaults so app-level rules pass unless
+// individual tests override them).
+
+function makeApp(over: Partial<ASCApp['attributes']> = {}): ASCApp {
+  return {
+    type: 'apps',
+    id: 'app1',
+    attributes: {
+      name: 'Release Pilot',
+      bundleId: 'app.releasepilot',
+      sku: 'release-pilot',
+      primaryLocale: 'en-US',
+      contentRightsDeclaration: 'DOES_NOT_USE_THIRD_PARTY_CONTENT',
+      ...over,
+    },
+  };
+}
+
+function makeAppInfo(over: { state?: string; primaryCategoryId?: string | null; localizationIds?: string[] } = {}): ASCAppInfo {
+  const primaryCategoryId = over.primaryCategoryId === undefined ? 'PRODUCTIVITY' : over.primaryCategoryId;
+  const localizationIds = over.localizationIds ?? ['ailoc-1'];
+  return {
+    type: 'appInfos',
+    id: 'ai-1',
+    attributes: { state: over.state ?? 'PREPARE_FOR_SUBMISSION' },
+    relationships: {
+      primaryCategory: primaryCategoryId
+        ? { data: { type: 'appCategories', id: primaryCategoryId } }
+        : { data: null },
+      appInfoLocalizations: {
+        data: localizationIds.map((id) => ({ type: 'appInfoLocalizations' as const, id })),
+      },
+    },
+  };
+}
+
+function makeCategory(id = 'PRODUCTIVITY'): ASCAppCategory {
+  return { type: 'appCategories', id };
+}
+
+function makeAppInfoLoc(over: Partial<ASCAppInfoLocalization['attributes']> & { id?: string } = {}): ASCAppInfoLocalization {
+  // We use `'k' in over` rather than `??` so callers can explicitly pass
+  // `privacyPolicyUrl: undefined` to clear the default — otherwise `??`
+  // silently restores the default and masks the "missing field" test.
+  return {
+    type: 'appInfoLocalizations',
+    id: over.id ?? 'ailoc-1',
+    attributes: {
+      locale: 'locale' in over ? over.locale : 'en-US',
+      name: 'name' in over ? over.name : 'Release Pilot',
+      subtitle: 'subtitle' in over ? over.subtitle : 'Indie iOS dev companion',
+      privacyPolicyUrl: 'privacyPolicyUrl' in over ? over.privacyPolicyUrl : 'https://example.com/privacy',
+    },
+  };
+}
+
+function makeSub(productId: string, state = 'READY_TO_SUBMIT'): ASCSubscription {
+  return {
+    type: 'subscriptions',
+    id: 'sub-' + productId,
+    attributes: { productId, name: productId.replace(/_/g, ' '), state },
+  };
+}
+
 function makeCtx(over: Partial<ChecklistContext> = {}): ChecklistContext {
   return {
     appId: 'app1',
@@ -79,6 +148,17 @@ function makeCtx(over: Partial<ChecklistContext> = {}): ChecklistContext {
       over.screenshotSetsByLocalization ??
       new Map([['loc1', [makeScreenshotSet('APP_IPHONE_67')]]]),
     isFirstVersion: over.isFirstVersion ?? false,
+    app: over.app === undefined ? makeApp() : over.app,
+    appInfo: over.appInfo === undefined ? makeAppInfo() : over.appInfo,
+    primaryCategory: over.primaryCategory === undefined ? makeCategory('PRODUCTIVITY') : over.primaryCategory,
+    appInfoLocalization: over.appInfoLocalization === undefined ? makeAppInfoLoc() : over.appInfoLocalization,
+    subscriptionProducts:
+      over.subscriptionProducts === undefined
+        ? [
+            makeSub('release_pilot_pro_monthly', 'READY_TO_SUBMIT'),
+            makeSub('release_pilot_pro_yearly', 'READY_TO_SUBMIT'),
+          ]
+        : over.subscriptionProducts,
   };
 }
 
@@ -90,14 +170,16 @@ function ruleById(results: ReturnType<typeof runChecklist>, id: string) {
 // RULE_COUNT / runChecklist baseline
 // ---------------------------------------------------------------------------
 
-ok('exposes 10 rules',           RULE_COUNT === 10);
-ok('runChecklist returns 10',    runChecklist(makeCtx()).length === 10);
+ok('exposes 15 rules',           RULE_COUNT === 15);
+ok('runChecklist returns 15',    runChecklist(makeCtx()).length === 15);
 
-// Happy path: a clean draft should be all-pass (except encryption which is unknown)
+// Happy path: a clean draft + complete app metadata + all-ready subs should
+// produce 13 pass + 2 unknown (encryption + app-privacy-details — both are
+// dashboard-only and always unknown). No warns, no fails.
 {
   const results = runChecklist(makeCtx());
   const summary = summarizeChecklist(results);
-  ok('happy path: 9 pass + 1 unknown', summary.pass === 9 && summary.unknown === 1);
+  ok('happy path: 13 pass + 2 unknown', summary.pass === 13 && summary.unknown === 2);
   ok('happy path: overallSeverity = unknown (no warn/fail)', summary.overallSeverity === 'unknown');
 }
 
@@ -137,9 +219,24 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 // board. The summary card uses this signature to render the neutral
 // "Nothing to check yet" empty state instead of red blocker copy.
 {
-  const results = runChecklist(makeCtx({ version: null, build: null, localizations: [] }));
-  const allNa = results.every((r) => r.severity === 'na');
-  ok('no-draft: all 10 rules degrade to NA', allNa);
+  // When no draft exists, per-version rules degrade to NA. App-level
+  // rules (content rights, category, privacy URL) are independent of the
+  // version — they still surface their status. App-Privacy-Details and
+  // subscription-products also degrade to NA when version is null /
+  // subs are empty respectively. We assert no fails or warns appear.
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    subscriptionProducts: [],
+  });
+  const results = runChecklist(ctx);
+  const summary = summarizeChecklist(results);
+  ok('no-draft: per-version rules are NA', results.find((r) => r.id === 'description')?.severity === 'na');
+  ok('no-draft: no fails surface',         summary.fail === 0);
+  ok('no-draft: app-level rules still pass',
+    results.find((r) => r.id === 'content-rights')?.severity === 'pass' &&
+    results.find((r) => r.id === 'category')?.severity === 'pass');
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +401,177 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 }
 
 // ---------------------------------------------------------------------------
+// ruleContentRights (app-level)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ app: null })), 'content-rights');
+  ok('content-rights: no app → unknown', r?.severity === 'unknown');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ app: makeApp({ contentRightsDeclaration: undefined }) })), 'content-rights');
+  ok('content-rights: unset → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ app: makeApp({ contentRightsDeclaration: '' }) })), 'content-rights');
+  ok('content-rights: blank string → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ app: makeApp({ contentRightsDeclaration: 'DOES_NOT_USE_THIRD_PARTY_CONTENT' }) })), 'content-rights');
+  ok('content-rights: declared no → pass', r?.severity === 'pass');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ app: makeApp({ contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT' }) })), 'content-rights');
+  ok('content-rights: declared yes → pass', r?.severity === 'pass');
+  ok('content-rights: message mentions third-party for "yes"',
+    typeof r?.message === 'string' && r.message.toLowerCase().includes('third-party'));
+}
+
+// ---------------------------------------------------------------------------
+// ruleCategory (app-level)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfo: null })), 'category');
+  ok('category: no appInfo → unknown', r?.severity === 'unknown');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ primaryCategory: null })), 'category');
+  ok('category: no primaryCategory → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ primaryCategory: makeCategory('DEVELOPER_TOOLS') })), 'category');
+  ok('category: set → pass', r?.severity === 'pass');
+  ok('category: humanizes enum (DEVELOPER_TOOLS → "Developer Tools")',
+    typeof r?.message === 'string' && r.message.includes('Developer Tools'));
+}
+
+// ---------------------------------------------------------------------------
+// rulePrivacyPolicyUrl (app-level)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfo: null })), 'privacy-policy-url');
+  ok('privacy-url: no appInfo → unknown', r?.severity === 'unknown');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: null })), 'privacy-policy-url');
+  ok('privacy-url: no localization → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ privacyPolicyUrl: undefined }) })), 'privacy-policy-url');
+  ok('privacy-url: missing → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ privacyPolicyUrl: 'not a url' }) })), 'privacy-policy-url');
+  ok('privacy-url: bad URL → warn', r?.severity === 'warn');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ privacyPolicyUrl: 'https://releasepilot.app/privacy' }) })), 'privacy-policy-url');
+  ok('privacy-url: valid → pass', r?.severity === 'pass');
+}
+
+// ---------------------------------------------------------------------------
+// ruleAppPrivacyDetails (always unknown — like encryption)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx()), 'app-privacy-details');
+  ok('app-privacy: always unknown when draft exists', r?.severity === 'unknown');
+  ok('app-privacy: carries an ASC deep link',
+    typeof r?.ascDeepLink === 'string' && r.ascDeepLink.includes('appstoreconnect.apple.com'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ version: null, build: null })), 'app-privacy-details');
+  ok('app-privacy: no draft → na', r?.severity === 'na');
+}
+
+// ---------------------------------------------------------------------------
+// ruleSubscriptionProducts (IAP)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ subscriptionProducts: null })), 'subscription-products');
+  ok('subs: null (API failure) → unknown', r?.severity === 'unknown');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ subscriptionProducts: [] })), 'subscription-products');
+  ok('subs: app has no IAP → na', r?.severity === 'na');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'READY_TO_SUBMIT'),
+      makeSub('release_pilot_pro_yearly', 'READY_TO_SUBMIT'),
+    ],
+  })), 'subscription-products');
+  ok('subs: all READY_TO_SUBMIT → pass', r?.severity === 'pass');
+  ok('subs: passes carry ready count',
+    typeof r?.message === 'string' && r.message.includes('2/2'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'MISSING_METADATA'),
+      makeSub('release_pilot_pro_yearly', 'READY_TO_SUBMIT'),
+    ],
+  })), 'subscription-products');
+  ok('subs: any MISSING_METADATA → fail', r?.severity === 'fail');
+  ok('subs: fail msg names the broken product',
+    typeof r?.message === 'string' && r.message.includes('release_pilot_pro_monthly'.replace(/_/g, ' ')));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'MISSING_METADATA'),
+      makeSub('release_pilot_pro_yearly', 'MISSING_METADATA'),
+    ],
+  })), 'subscription-products');
+  ok('subs: multiple broken → fail with count',
+    r?.severity === 'fail' && typeof r?.message === 'string' && r.message.includes('2 subscription products'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    subscriptionProducts: [makeSub('release_pilot_pro_monthly', 'REJECTED')],
+  })), 'subscription-products');
+  ok('subs: REJECTED → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    subscriptionProducts: [makeSub('release_pilot_pro_monthly', 'DEVELOPER_REMOVED_FROM_SALE')],
+  })), 'subscription-products');
+  ok('subs: removed from sale → warn (not fail)', r?.severity === 'warn');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'APPROVED'),
+      makeSub('release_pilot_pro_yearly', 'IN_REVIEW'),
+    ],
+  })), 'subscription-products');
+  ok('subs: APPROVED/IN_REVIEW → pass', r?.severity === 'pass');
+}
+
+// ---------------------------------------------------------------------------
+// Regression: a first-time submitter with broken IAP + missing Content
+// Rights — the exact scenario the user hit on Build 1.
+// ---------------------------------------------------------------------------
+
+{
+  const ctx = makeCtx({
+    isFirstVersion: true,
+    app: makeApp({ contentRightsDeclaration: undefined }),
+    subscriptionProducts: [
+      makeSub('release_pilot_pro_monthly', 'MISSING_METADATA'),
+      makeSub('release_pilot_pro_yearly', 'MISSING_METADATA'),
+    ],
+  });
+  const summary = summarizeChecklist(runChecklist(ctx));
+  ok('regression: first submission + broken IAP + no Content Rights → fail',
+    summary.overallSeverity === 'fail' && summary.fail >= 2);
+}
+
+// ---------------------------------------------------------------------------
 // summarizeChecklist — overall severity priority
 // ---------------------------------------------------------------------------
 
@@ -318,7 +586,7 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
   });
   const summary = summarizeChecklist(runChecklist(ctx));
   ok('summarize: any fail → overall fail', summary.overallSeverity === 'fail');
-  ok('summarize: total = RULE_COUNT', summary.total === 10);
+  ok('summarize: total = RULE_COUNT', summary.total === RULE_COUNT);
 }
 
 {

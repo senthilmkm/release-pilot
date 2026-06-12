@@ -1,8 +1,13 @@
 import type {
+  ASCApp,
+  ASCAppCategory,
+  ASCAppInfo,
+  ASCAppInfoLocalization,
   ASCAppScreenshotSet,
   ASCAppStoreVersion,
   ASCAppStoreVersionLocalization,
   ASCBuild,
+  ASCSubscription,
 } from '@/lib/api/asc-types';
 
 /**
@@ -58,6 +63,28 @@ export type ChecklistContext = {
   screenshotSetsByLocalization: Map<string, ASCAppScreenshotSet[]>;
   /** True when this is the app's very first version (no prior live release). */
   isFirstVersion: boolean;
+
+  // ---------------------------------------------------------------------
+  // App-level data (set by `useChecklistQuery`). All optional — if the
+  // API call fails or the user's key lacks permission, the corresponding
+  // rules degrade to `unknown` instead of `fail`. We don't want a missing
+  // permission to read like a broken submission.
+  // ---------------------------------------------------------------------
+
+  /** The full App entity (for `contentRightsDeclaration`). */
+  app: ASCApp | null;
+  /** The editable AppInfo (state=`PREPARE_FOR_SUBMISSION`), or live one. */
+  appInfo: ASCAppInfo | null;
+  /** Primary category resolved from `appInfo.relationships.primaryCategory`. */
+  primaryCategory: ASCAppCategory | null;
+  /** AppInfo localization in primary locale (for `privacyPolicyUrl`). */
+  appInfoLocalization: ASCAppInfoLocalization | null;
+  /**
+   * Every subscription product across every group on this app. Empty
+   * array = app has no IAP (rule degrades to `na`). `null` = we couldn't
+   * read this endpoint (403 / network / etc) — rule degrades to `unknown`.
+   */
+  subscriptionProducts: ASCSubscription[] | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -127,7 +154,7 @@ function isLikelyUrl(s: string | undefined | null): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// The 10 rules
+// The 15 rules (10 per-version + 4 app-level + 1 IAP)
 // ---------------------------------------------------------------------------
 
 const ruleDraftExists = (ctx: ChecklistContext): RuleResult => {
@@ -464,10 +491,243 @@ const rulePrivacyEncryption = (ctx: ChecklistContext): RuleResult => {
 };
 
 // ---------------------------------------------------------------------------
+// App-level rules (5) — these check fields that survive across versions.
+// They especially matter for FIRST submissions, where every app-level
+// field is also a blocker (Apple won't accept the binary without them).
+// ---------------------------------------------------------------------------
+
+const ruleContentRights = (ctx: ChecklistContext): RuleResult => {
+  if (!ctx.app) {
+    // We couldn't load the App entity — degrade to `unknown` so the user
+    // knows to verify manually. This is NOT `fail` because absence of
+    // signal isn't proof of absence of data.
+    return {
+      id: 'content-rights',
+      title: 'Content rights declaration set',
+      severity: 'unknown',
+      message: "We couldn't read your app's Content Rights setting from the API.",
+      remediation: 'App Store Connect → App Information → Content Rights → select Yes or No.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  const v = ctx.app.attributes.contentRightsDeclaration;
+  if (!isNonEmpty(v)) {
+    return {
+      id: 'content-rights',
+      title: 'Content rights declaration set',
+      severity: 'fail',
+      message: "Apple requires you to declare whether your app uses third-party content.",
+      remediation:
+        'App Store Connect → App Information → Content Rights → answer Yes or No (most indie apps answer "No").',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  return {
+    id: 'content-rights',
+    title: 'Content rights declaration set',
+    severity: 'pass',
+    message:
+      v === 'USES_THIRD_PARTY_CONTENT'
+        ? 'Declared: uses third-party content (rights confirmed).'
+        : "Declared: doesn't use third-party content.",
+  };
+};
+
+const ruleCategory = (ctx: ChecklistContext): RuleResult => {
+  if (!ctx.appInfo) {
+    return {
+      id: 'category',
+      title: 'Primary App Store category chosen',
+      severity: 'unknown',
+      message: "We couldn't read your App Info from the API.",
+      remediation: 'App Store Connect → App Information → set a Primary Category.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  if (!ctx.primaryCategory) {
+    return {
+      id: 'category',
+      title: 'Primary App Store category chosen',
+      severity: 'fail',
+      message: "No Primary Category selected — Apple won't accept the submission.",
+      remediation:
+        'App Store Connect → App Information → Primary Category → pick the best fit (e.g. Productivity, Utilities, Developer Tools).',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  // Apple's category ids are uppercase enum strings — humanize for the UI.
+  const human = ctx.primaryCategory.id
+    .toLowerCase()
+    .split('_')
+    .map((w) => (w.length > 0 ? w[0]!.toUpperCase() + w.slice(1) : w))
+    .join(' ');
+  return {
+    id: 'category',
+    title: 'Primary App Store category chosen',
+    severity: 'pass',
+    message: `Primary Category: ${human}.`,
+  };
+};
+
+const rulePrivacyPolicyUrl = (ctx: ChecklistContext): RuleResult => {
+  if (!ctx.appInfo) {
+    return {
+      id: 'privacy-policy-url',
+      title: 'Privacy Policy URL set on App Info',
+      severity: 'unknown',
+      message: "We couldn't read your App Info from the API.",
+      remediation:
+        'App Store Connect → App Information → General → set a public Privacy Policy URL (https://…).',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  const loc = ctx.appInfoLocalization;
+  if (!loc) {
+    return {
+      id: 'privacy-policy-url',
+      title: 'Privacy Policy URL set on App Info',
+      severity: 'fail',
+      message: 'No App Info localization found — Apple needs one for the primary locale.',
+      remediation:
+        'App Store Connect → App Information → fill in name, subtitle, and Privacy Policy URL for your primary locale.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  const url = loc.attributes.privacyPolicyUrl;
+  if (!isNonEmpty(url)) {
+    return {
+      id: 'privacy-policy-url',
+      title: 'Privacy Policy URL set on App Info',
+      severity: 'fail',
+      message: 'Privacy Policy URL is blank — Apple requires this for every app.',
+      remediation:
+        'App Store Connect → App Information → Privacy Policy URL → paste your public privacy policy URL (https://…).',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  if (!isLikelyUrl(url)) {
+    return {
+      id: 'privacy-policy-url',
+      title: 'Privacy Policy URL set on App Info',
+      severity: 'warn',
+      message: `"${url}" doesn't look like a valid URL.`,
+      remediation: 'Make sure it starts with https:// and points to a reachable page.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  return {
+    id: 'privacy-policy-url',
+    title: 'Privacy Policy URL set on App Info',
+    severity: 'pass',
+    message: url,
+  };
+};
+
+const ruleAppPrivacyDetails = (ctx: ChecklistContext): RuleResult => {
+  // App Privacy "Data Types" survey (Privacy Nutrition Labels). The ASC
+  // API doesn't expose the survey answers — Apple intentionally requires
+  // it to be set through the dashboard only. We surface as `unknown`
+  // with a clear deep link so the user knows to verify manually.
+  if (!ctx.version) {
+    return {
+      id: 'app-privacy-details',
+      title: 'App Privacy "Data Types" survey filled',
+      severity: 'na',
+      message: 'No draft to check.',
+    };
+  }
+  return {
+    id: 'app-privacy-details',
+    title: 'App Privacy "Data Types" survey filled',
+    severity: 'unknown',
+    message:
+      "We can't read the App Privacy survey from the API — Apple only exposes it in the dashboard.",
+    remediation:
+      'App Store Connect → App Privacy → Data Types → fill in every data type your app collects (or declare "we don\'t collect data").',
+    ascDeepLink: ascAppLink(ctx.appId, 'app-privacy'),
+  };
+};
+
+const ruleSubscriptionProducts = (ctx: ChecklistContext): RuleResult => {
+  if (ctx.subscriptionProducts === null) {
+    // 403 / network — can't tell. Degrade gracefully.
+    return {
+      id: 'subscription-products',
+      title: 'Subscription products are ready to submit',
+      severity: 'unknown',
+      message:
+        "We couldn't read your subscription products from the API (the key may not have Admin / App Manager role).",
+      remediation:
+        'App Store Connect → Monetization → Subscriptions → verify every product shows "Ready to Submit" (not "Missing Metadata").',
+      ascDeepLink: ascAppLink(ctx.appId, 'subscriptions'),
+    };
+  }
+  if (ctx.subscriptionProducts.length === 0) {
+    return {
+      id: 'subscription-products',
+      title: 'Subscription products are ready to submit',
+      severity: 'na',
+      message: 'This app has no in-app subscriptions.',
+    };
+  }
+  // Categorize each product. MISSING_METADATA is a hard block; REJECTED
+  // means Apple already pushed back — both fail. READY_TO_SUBMIT and
+  // anything past it (WAITING/IN_REVIEW/APPROVED) are fine.
+  const broken: ASCSubscription[] = [];
+  const stale: ASCSubscription[] = [];
+  let ready = 0;
+  for (const s of ctx.subscriptionProducts) {
+    const state = s.attributes.state ?? '';
+    if (state === 'MISSING_METADATA') broken.push(s);
+    else if (state === 'REJECTED') broken.push(s);
+    else if (state === 'DEVELOPER_REMOVED_FROM_SALE') stale.push(s);
+    else ready++;
+  }
+  if (broken.length > 0) {
+    const first = broken[0]!;
+    const name = first.attributes.name ?? first.attributes.productId ?? '(unnamed)';
+    const stateLabel =
+      first.attributes.state === 'MISSING_METADATA' ? 'is MISSING_METADATA' : 'was rejected by Apple';
+    return {
+      id: 'subscription-products',
+      title: 'Subscription products are ready to submit',
+      severity: 'fail',
+      message:
+        broken.length === 1
+          ? `'${name}' ${stateLabel}. Apple won't approve the binary.`
+          : `${broken.length} subscription products need attention. First one: '${name}' ${stateLabel}.`,
+      remediation:
+        first.attributes.state === 'MISSING_METADATA'
+          ? "Open ASC → Monetization → Subscriptions → tap the product → fill in Availability + Price + Localization + Review Screenshot until status flips to 'Ready to Submit'."
+          : "Open ASC → Monetization → Subscriptions → tap the product → review Apple's rejection reason and resubmit.",
+      ascDeepLink: ascAppLink(ctx.appId, 'subscriptions'),
+    };
+  }
+  if (stale.length > 0) {
+    const first = stale[0]!;
+    const name = first.attributes.name ?? first.attributes.productId ?? '(unnamed)';
+    return {
+      id: 'subscription-products',
+      title: 'Subscription products are ready to submit',
+      severity: 'warn',
+      message: `'${name}' is removed from sale. Confirm this was intentional.`,
+      ascDeepLink: ascAppLink(ctx.appId, 'subscriptions'),
+    };
+  }
+  return {
+    id: 'subscription-products',
+    title: 'Subscription products are ready to submit',
+    severity: 'pass',
+    message: `${ready}/${ctx.subscriptionProducts.length} subscription product(s) ready.`,
+  };
+};
+
+// ---------------------------------------------------------------------------
 // Definitions list — drives ordering in the UI and the runChecklist loop
 // ---------------------------------------------------------------------------
 
 const RULE_DEFINITIONS: readonly ((ctx: ChecklistContext) => RuleResult)[] = [
+  // Per-version rules (run every release)
   ruleDraftExists,
   ruleBuildAttached,
   ruleDescription,
@@ -478,12 +738,22 @@ const RULE_DEFINITIONS: readonly ((ctx: ChecklistContext) => RuleResult)[] = [
   ruleWhatsNew,
   ruleScreenshots,
   rulePrivacyEncryption,
+
+  // App-level rules (mostly matter for first submission, but still
+  // surface drift if you ever clear a value later).
+  ruleContentRights,
+  ruleCategory,
+  rulePrivacyPolicyUrl,
+  ruleAppPrivacyDetails,
+
+  // IAP rules (only apps with subscriptions)
+  ruleSubscriptionProducts,
 ];
 
 export const RULE_COUNT = RULE_DEFINITIONS.length;
 
 // ---------------------------------------------------------------------------
-// Aggregate summary (for the screen header — "8 of 10 passing")
+// Aggregate summary (for the screen header — "13 of 15 passing")
 // ---------------------------------------------------------------------------
 
 export type ChecklistSummary = {
