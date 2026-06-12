@@ -61,7 +61,7 @@ import type { GateBlockReason, PaywallPlan } from '@/lib/subscription/types';
 const FEATURE_BULLETS = [
   'Track every app in your portfolio',
   'Push notifications when status changes',
-  'Lock Screen widget — replaces 4 dashboards',
+  'Every app in your Lock Screen widget (free shows 1)',
   'Live Activity during App Review wait',
   'RevenueCat on the Today tab — live MRR & revenue',
   'Unlimited review replies with templates',
@@ -70,7 +70,7 @@ const FEATURE_BULLETS = [
 ] as const;
 
 const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
-const PRIVACY_URL = 'https://releasepilot.app/privacy';
+const PRIVACY_URL = 'https://senthilmkm.github.io/release-pilot/privacy.html';
 
 function goBackOrHome(): void {
   if (router.canGoBack()) router.back();

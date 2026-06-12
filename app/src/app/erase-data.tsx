@@ -117,7 +117,7 @@ export default function EraseDataScreen() {
             Every connected team. The .p8 file is wiped from the iOS Keychain.
           </Row>
           <Row palette={palette} icon={<Sparkles size={18} />} title="RevenueCat secret keys">
-            Every per-app secret key you've connected for the Today briefing.
+            Every per-app secret key you&apos;ve connected for the Today briefing.
           </Row>
           <Row palette={palette} icon={<LayoutDashboard size={18} />} title="Cached app data">
             Releases, version history, customer reviews, draft replies, and the Live Activity /
@@ -125,7 +125,7 @@ export default function EraseDataScreen() {
           </Row>
           <Row palette={palette} icon={<Mail size={18} />} title="Push registration">
             We call the Release Pilot worker to delete its row for this device, so Apple stops
-            polling on your behalf and you'll receive no more notifications.
+            polling on your behalf and you&apos;ll receive no more notifications.
           </Row>
         </Section>
 
@@ -133,11 +133,11 @@ export default function EraseDataScreen() {
         <Section title="WHAT DOES NOT GET DELETED" palette={palette}>
           <Row palette={palette} icon={<AlertTriangle size={18} />} title="Your App Store subscription">
             Pro is billed by Apple, not Release Pilot. Cancel it in Settings → Apple ID →
-            Subscriptions. (If you don't, the trial / renewal continues — but the app has no data
+            Subscriptions. (If you don&apos;t, the trial / renewal continues — but the app has no data
             to show until you re-add an API key.)
           </Row>
           <Row palette={palette} icon={<AlertTriangle size={18} />} title="The API key in App Store Connect itself">
-            We can't revoke it for you. If you want belt-and-suspenders, also revoke it at{' '}
+            We can&apos;t revoke it for you. If you want belt-and-suspenders, also revoke it at{' '}
             appstoreconnect.apple.com → Users and Access → Integrations → App Store Connect API.
           </Row>
         </Section>

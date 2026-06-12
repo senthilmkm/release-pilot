@@ -11,7 +11,7 @@ const ok = (name: string, pass: boolean) => tests.push({ name, pass });
 
 /** Helper — build a `{metrics: [...]}` envelope with one entry per metric. */
 function envelope(
-  metrics: Array<Pick<RawRevenueCatOverviewMetric, 'id' | 'value' | 'unit'>>,
+  metrics: Pick<RawRevenueCatOverviewMetric, 'id' | 'value' | 'unit'>[],
   currency = 'USD',
 ) {
   return {

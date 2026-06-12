@@ -71,7 +71,7 @@ Refunds are handled by Apple. To request a refund, go to [https://reportaproblem
 Pro unlocks:
 - Unlimited connected ASC accounts and apps
 - Push notifications
-- Lock Screen widgets and Live Activities
+- Every app in your Lock Screen widget (free shows 1) and Live Activities
 - RevenueCat integration on the Today tab
 - Unlimited review replies (with templates)
 - Unlimited pre-submit checklist runs

@@ -23,6 +23,10 @@ type Body = {
   issuerId: string;
   keyId: string;
   p8PEM: string;
+  /** Pro entitlement at the time of registration. Defaults to false if
+   *  the client (e.g. an older version) doesn't send it — fail-closed:
+   *  unknown subscription state = no pushes. */
+  isPro?: boolean;
 };
 
 const HEX_TOKEN_RE   = /^[0-9a-fA-F]{40,200}$/;
@@ -58,10 +62,13 @@ export async function handleRegister(req: Request, env: Env): Promise<Response> 
       issuerId: body.issuerId,
       keyId: body.keyId,
       p8: encrypted,
+      // Fail-closed: only set isPro=true if the client explicitly said so.
+      // Older clients that don't send the field are treated as free.
+      isPro: body.isPro === true,
       nowSec: Math.floor(Date.now() / 1000),
     });
 
-    return ok({ registered: true });
+    return ok({ registered: true, isPro: body.isPro === true });
   } catch (e) {
     return serverErr(e instanceof Error ? e.message : 'unknown');
   }

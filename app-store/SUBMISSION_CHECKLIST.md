@@ -13,13 +13,14 @@ Print this. Cross off each line as you do it. Do not skip — the items are orde
   - Both products must be in the **same Subscription Group** (e.g. `release_pilot_pro`)
   - Both must show status **"Ready to Submit"** before you ship
   - This was already flagged in a RevenueCat warning earlier — handle it FIRST
-- [ ] **Privacy Policy URL is hosted and works** at `https://releasepilot.app/privacy`
-  - Use `app-store/PRIVACY_POLICY.md`, convert to HTML, host on GitHub Pages or Cloudflare Pages
-  - **Test the link from a fresh browser session** — Apple will check it
-  - Fill in the `[FILL IN]` placeholders (effective date, jurisdiction, postal address)
-- [ ] **Support URL is hosted and works** at `https://releasepilot.app/support`
-  - Minimum: a page with your email and an "Email me" button
-  - Apple will reject if this is a `mailto:` URL in the listing field — must be `https://`
+- [x] **Privacy Policy URL is hosted and works** at `https://senthilmkm.github.io/release-pilot/privacy.html`
+  - Hosted via GitHub Pages from `docs/privacy.html` in the `senthilmkm/release-pilot` repo
+  - Verified live (HTTP 200) — Apple's reviewer can open it
+  - When you buy `releasepilot.app` later, swap this to `https://releasepilot.app/privacy` in ASC (metadata-only update)
+- [x] **Support URL is hosted and works** at `https://senthilmkm.github.io/release-pilot/support.html`
+  - Hosted via GitHub Pages from `docs/support.html`
+  - Verified live (HTTP 200) — has email contact + how-to sections
+  - Apple requires `https://` (not `mailto:`) — this satisfies that
 - [x] **Account deletion path is functional**
   - Single button: More → DANGER ZONE → Erase all data
   - Wipes Keychain (.p8s + RC secrets), SQLite, MMKV, scheduled notifications, RevenueCat subscriber alias, worker push registration, and the widget App Group

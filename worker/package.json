@@ -12,7 +12,9 @@
     "test": "node scripts/run-tests.mjs",
     "db:create": "wrangler d1 create release-pilot",
     "db:migrate:local": "wrangler d1 execute release-pilot --local --file=src/storage/d1-schema.sql",
-    "db:migrate:prod": "wrangler d1 execute release-pilot --remote --file=src/storage/d1-schema.sql"
+    "db:migrate:prod": "wrangler d1 execute release-pilot --remote --file=src/storage/d1-schema.sql",
+    "db:migrate:002:local": "wrangler d1 execute release-pilot --local --file=src/storage/d1-migrations/002-add-is-pro.sql",
+    "db:migrate:002:prod": "wrangler d1 execute release-pilot --remote --file=src/storage/d1-migrations/002-add-is-pro.sql"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260601.0",

@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
-import { Bell, BellRing, Sparkle } from 'lucide-react-native';
+import { Bell, BellRing, Lock, Sparkle } from 'lucide-react-native';
 
 import { InfoBullet } from '@/components/info-bullet';
 import { OnboardingShell } from '@/features/onboarding/onboarding-shell';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Radii, Spacing, TypeScale } from '@/constants/theme';
 import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
+import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import { registerDeviceWithWorker } from '@/lib/push/register-device';
 import { scheduleBriefingNotification } from '@/lib/push/schedule-briefing';
 
@@ -16,8 +17,20 @@ export default function NotificationsScreen() {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
   const [requesting, setRequesting] = useState(false);
+  const gate = usePaywallGate();
 
   const enable = async () => {
+    // Push notifications are Pro-only — gate BEFORE the iOS permission
+    // prompt fires so free users see a clear upgrade pitch instead of
+    // burning their one-time "allow notifications" decision on a feature
+    // that wouldn't deliver anyway. If they convert at the paywall the
+    // app will return here and they can re-tap Enable.
+    const decision = gate.check('push-notifications-pro');
+    if (!decision.allowed) {
+      gate.openPaywall(decision.reason);
+      return;
+    }
+
     setRequesting(true);
     try {
       const { status } = await Notifications.requestPermissionsAsync({
@@ -87,6 +100,11 @@ export default function NotificationsScreen() {
             icon={Sparkle}
             title="Low-rating reviews"
             body="Optional alert when a new ★ or ★★ review lands."
+          />
+          <InfoBullet
+            icon={Lock}
+            title="Pro feature"
+            body="Push notifications are part of Release Pilot Pro. Tap Enable to see the plan options."
           />
         </View>
       </View>

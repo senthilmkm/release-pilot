@@ -88,6 +88,12 @@ worker/.wrangler/
 build-info.tmp.json
 build-log-decompressed.txt
 
+# Local IPA inspection scratch space (downloaded .ipa + unpacked tree).
+# Recreated on demand; never useful in git.
+build-inspect/
+*.ipa
+*.app.dSYM.zip
+
 # ---- TypeScript / test caches ----
 *.tsbuildinfo
 coverage/

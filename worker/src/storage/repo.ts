@@ -15,6 +15,7 @@ export type DeviceRow = {
   issuerId: string;
   keyId: string;
   p8: EncryptedCreds;
+  isPro: boolean;
   createdAt: number;
   lastPolledAt: number | null;
   consecutiveErrors: number;
@@ -26,17 +27,19 @@ export async function upsertDevice(args: {
   issuerId: string;
   keyId: string;
   p8: EncryptedCreds;
+  isPro: boolean;
   nowSec: number;
 }): Promise<void> {
   await args.db
     .prepare(
-      `INSERT INTO devices (device_token, issuer_id, key_id, p8_ciphertext_b64, p8_iv_b64, p8_salt_b64, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO devices (device_token, issuer_id, key_id, p8_ciphertext_b64, p8_iv_b64, p8_salt_b64, is_pro, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(device_token, issuer_id) DO UPDATE SET
          key_id = excluded.key_id,
          p8_ciphertext_b64 = excluded.p8_ciphertext_b64,
          p8_iv_b64 = excluded.p8_iv_b64,
          p8_salt_b64 = excluded.p8_salt_b64,
+         is_pro = excluded.is_pro,
          consecutive_errors = 0,
          last_polled_ok = 1`,
     )
@@ -47,9 +50,31 @@ export async function upsertDevice(args: {
       args.p8.ciphertextB64,
       args.p8.ivB64,
       args.p8.saltB64,
+      args.isPro ? 1 : 0,
       args.nowSec,
     )
     .run();
+}
+
+/**
+ * Lightweight isPro flip — used by the subscription-lifecycle watcher
+ * when the user upgrades/downgrades. Doesn't require .p8 re-submission
+ * (no Face ID prompt), keyed only by deviceToken since the token itself
+ * is the auth secret for a given device.
+ *
+ * Returns the number of rows updated (= number of accounts registered
+ * for this device).
+ */
+export async function setDeviceIsPro(args: {
+  db: D1Database;
+  deviceToken: string;
+  isPro: boolean;
+}): Promise<number> {
+  const result = await args.db
+    .prepare('UPDATE devices SET is_pro = ? WHERE device_token = ?')
+    .bind(args.isPro ? 1 : 0, args.deviceToken)
+    .run();
+  return result.meta.changes;
 }
 
 export async function deleteDevice(args: {
@@ -74,13 +99,20 @@ export async function listDevicesBatch(args: {
 }): Promise<DeviceRow[]> {
   // Oldest-polled first so all devices get a fair turn even when the
   // batch limit is binding.
+  //
+  // Pro-only filter (`is_pro = 1`) makes push notifications a true paid
+  // feature: free users may have a registered device row (e.g. they
+  // were Pro and downgraded), but the cron never polls or pushes for
+  // them. The front-end also blocks new registrations from free users,
+  // so this filter is the second of two enforcement layers.
   const result = await args.db
     .prepare(
       `SELECT device_token, issuer_id, key_id,
               p8_ciphertext_b64, p8_iv_b64, p8_salt_b64,
-              created_at, last_polled_at, consecutive_errors
+              is_pro, created_at, last_polled_at, consecutive_errors
          FROM devices
         WHERE consecutive_errors < 5
+          AND is_pro = 1
         ORDER BY COALESCE(last_polled_at, 0) ASC
         LIMIT ?`,
     )
@@ -92,6 +124,7 @@ export async function listDevicesBatch(args: {
       p8_ciphertext_b64: string;
       p8_iv_b64: string;
       p8_salt_b64: string;
+      is_pro: number;
       created_at: number;
       last_polled_at: number | null;
       consecutive_errors: number;
@@ -106,6 +139,7 @@ export async function listDevicesBatch(args: {
       ivB64: row.p8_iv_b64,
       saltB64: row.p8_salt_b64,
     },
+    isPro: row.is_pro === 1,
     createdAt: row.created_at,
     lastPolledAt: row.last_polled_at,
     consecutiveErrors: row.consecutive_errors,

@@ -1,8 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { Alert, AppState, type AppStateStatus } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 import { refreshSubscriptionState } from '@/lib/subscription/init';
 import { useSubscriptionStore } from '@/lib/state/subscription';
+import { usePushRegistrationStore } from '@/lib/state/push-registration';
+import {
+  registerDeviceWithWorker,
+  syncIsProWithWorker,
+} from '@/lib/push/register-device';
+import {
+  cancelBriefingNotification,
+  isBriefingNotificationScheduled,
+  scheduleBriefingNotification,
+} from '@/lib/push/schedule-briefing';
 
 /**
  * Watches the global subscription state for changes that the user needs
@@ -69,6 +80,24 @@ export function useSubscriptionLifecycleWatcher(): void {
       if (now - transitionAnnouncedAtRef.current < 30_000) return;
       transitionAnnouncedAtRef.current = now;
 
+      // Side-effect: sync isPro flip to the worker so the cron poll
+      // cycle picks up the new state. Cheap, no Face ID prompt.
+      void syncIsProWithWorker();
+
+      // Side-effect: keep the local daily-briefing notification in sync.
+      //   - Pro → Free: cancel the 7am push (free users shouldn't get it)
+      //   - Free → Pro: re-schedule if iOS perm is granted
+      void reconcileBriefingForPlanChange(isPro);
+
+      // Side-effect: Free → Pro re-registration. If the user previously
+      // tried to enable notifications on free, their device might not
+      // be registered with the worker yet. Try again now that they're
+      // Pro. No Face ID prompt unless we actually have to upload the .p8
+      // (force: false skips already-registered pairs).
+      if (!wasPro && isPro) {
+        void reregisterAfterUpgrade();
+      }
+
       // Pro → Free is the user-visible one. We don't alert Free → Pro
       // because the purchase flow already shows "Welcome to Pro".
       if (wasPro && !isPro) {
@@ -85,4 +114,36 @@ export function useSubscriptionLifecycleWatcher(): void {
     });
     return () => unsubscribe();
   }, []);
+
+  // 3. App-launch defensive sync to the worker. Covers the edge case
+  //    where the user upgraded/downgraded while the app was killed —
+  //    the Zustand listener above wouldn't have fired during that time.
+  useEffect(() => {
+    void syncIsProWithWorker();
+  }, []);
+}
+
+async function reregisterAfterUpgrade(): Promise<void> {
+  try {
+    const token = usePushRegistrationStore.getState().deviceToken;
+    if (!token) return; // user never granted iOS permission — nothing to do
+    await registerDeviceWithWorker({ deviceToken: token, force: false });
+  } catch {
+    // Best-effort: the background-fetch fallback in _layout.tsx will retry
+  }
+}
+
+async function reconcileBriefingForPlanChange(isPro: boolean): Promise<void> {
+  try {
+    const perm = await Notifications.getPermissionsAsync();
+    if (perm.status !== 'granted') return;
+    const isScheduled = await isBriefingNotificationScheduled();
+    if (isPro && !isScheduled) {
+      await scheduleBriefingNotification();
+    } else if (!isPro && isScheduled) {
+      await cancelBriefingNotification();
+    }
+  } catch {
+    // Non-blocking — setup-notifications.ts also reconciles on next launch
+  }
 }

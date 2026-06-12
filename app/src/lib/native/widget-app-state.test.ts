@@ -197,7 +197,11 @@ ok('priority: all 7 states distinct ranks',
 }
 
 // Full pipeline scenario: indie dev with 5 apps in different states.
-// Free tier should pick the right ONE app to surface.
+// Free tier MUST pick the alphabetically-first app (the one that's
+// unlocked in Releases/Reviews/Today/Checklist), NOT the most-urgent
+// one. This used to pick "Reader" (approved_waiting) which was the
+// widget-vs-tabs inconsistency bug — widget surfaced an app the user
+// couldn't tap into.
 {
   const apps = [
     app('1', 'Notes'),
@@ -210,12 +214,48 @@ ok('priority: all 7 states distinct ranks',
     ['1', snapshot('live')],
     ['2', snapshot('drafting')],
     ['3', snapshot('in_review')],       // ← Apple looking right now
-    ['4', snapshot('approved_waiting')], // ← Can release now — winner
+    ['4', snapshot('approved_waiting')], // ← Pro would show this
     ['5', snapshot('submitted')],
   );
   const out = buildSharedState({ apps, snapshots: snaps, nowMs: NOW, proStatus: 'free' });
-  ok('free hero pick: surfaces the most actionable app',
-    out.apps.length === 1 && out.apps[0]!.name === 'Reader');
+  ok('free pick: surfaces alphabetically-first app (matches free-app rule)',
+    out.apps.length === 1 && out.apps[0]!.name === 'Habits');
+}
+
+// Regression for the real bug: PDF Studio (live) + Release Pilot
+// (drafting). HERO_PRIORITY would pick Release Pilot, but the user's
+// free app is PDF Studio (alphabetically first). Widget must agree.
+{
+  const apps = [
+    app('rp', 'Release Pilot'),
+    app('ps', 'PDF Studio: Scan & Convert App'),
+    app('rc', 'Recall: Personal Memory'),
+    app('sd', 'Shotday'),
+  ];
+  const snaps = snapshots(
+    ['rp', snapshot('drafting')],   // urgent state, would beat live in HERO
+    ['ps', snapshot('live')],       // alphabetically first
+    ['rc', snapshot('live')],
+    ['sd', snapshot('live')],
+  );
+  const out = buildSharedState({ apps, snapshots: snaps, nowMs: NOW, proStatus: 'free' });
+  ok('regression: free widget shows PDF Studio (free app), not Release Pilot',
+    out.apps.length === 1 && out.apps[0]!.name === 'PDF Studio: Scan & Convert App');
+}
+
+// Same regression scenario but lapsed: still alphabetically first.
+{
+  const apps = [
+    app('rp', 'Release Pilot'),
+    app('ps', 'PDF Studio: Scan & Convert App'),
+  ];
+  const snaps = snapshots(
+    ['rp', snapshot('rejected')],   // most urgent possible state
+    ['ps', snapshot('live')],
+  );
+  const out = buildSharedState({ apps, snapshots: snaps, nowMs: NOW, proStatus: 'lapsed' });
+  ok('regression: lapsed widget shows alphabetically-first even with rejected app available',
+    out.apps[0]!.name === 'PDF Studio: Scan & Convert App');
 }
 
 // Same scenario as Pro — full ordering surfaces all 5 by urgency.

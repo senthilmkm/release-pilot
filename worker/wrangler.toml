@@ -13,7 +13,7 @@ crons = ["*/15 * * * *"]
 binding = "DB"
 database_name = "release-pilot"
 # Filled in by `wrangler d1 create release-pilot` — DO NOT COMMIT a real id.
-database_id = "REPLACE_AFTER_DB_CREATE"
+database_id = "c168508b-b8f0-47ad-8b6e-43244cabc429"
 
 # Secrets are SET via `wrangler secret put NAME` (never committed):
 #   APNS_TEAM_ID         — Apple Developer team id (e.g. 2KJK6895B3)

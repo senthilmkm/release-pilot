@@ -112,7 +112,7 @@ export default function DiagnosticsScreen() {
         ],
       },
     ];
-  }, [buildVersion, online, entitlement, subStatus, accounts, deviceToken, pushReg, recentRuns]);
+  }, [buildVersion, online, entitlement, subStatus, accounts, deviceToken, pushReg, recentRuns, lastSyncedAtMs]);
 
   const handleCopyAll = async () => {
     void haptic.light();

@@ -14,7 +14,8 @@ export type RevenueCatErrorKind =
   | 'server_error'             // 5xx — RC's side
   | 'malformed_response'       // valid HTTP but unparseable body
   | 'no_network'               // device offline
-  | 'timeout';                 // request took too long
+  | 'timeout'                  // request took too long
+  | 'pro_required';            // defense-in-depth: caller is on free tier
 
 export class RevenueCatError extends Error {
   readonly kind: RevenueCatErrorKind;
@@ -91,6 +92,13 @@ export function describeRevenueCatError(err: RevenueCatError): {
         title: 'Request timed out',
         body: "RevenueCat didn't respond in time. Try again.",
         actionLabel: 'Retry',
+      };
+    case 'pro_required':
+      return {
+        title: 'RevenueCat is a Pro feature',
+        body:
+          'Subscribe to Pro to connect RevenueCat and see live MRR, active subscribers, and 28-day revenue on the Today tab.',
+        actionLabel: 'See plans',
       };
   }
 }

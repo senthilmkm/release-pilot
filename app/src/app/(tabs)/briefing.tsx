@@ -21,6 +21,8 @@ import { useAllAppsQuery, useAllReviewsQuery, useLatestStatesQuery } from '@/lib
 import { useRevenueOverviewsQuery } from '@/lib/api/revenuecat-queries';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
 import { dismissRcBanner, isRcBannerDismissed } from '@/lib/state/today-banner';
+import { useFreeApp } from '@/hooks/use-free-app';
+import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import {
   buildBriefing,
   type AppBriefingCard,
@@ -139,6 +141,9 @@ export default function BriefingTab() {
     () => Object.values(rcMeta).every((m) => !m?.verified),
     [rcMeta],
   );
+  // Top-level paywall gate — used by the banner tap handler. (The per-card
+  // AppCard component instantiates its own copy inside its closure.)
+  const gate = usePaywallGate();
   const [rcBannerDismissed, setRcBannerDismissed] = useState(() => isRcBannerDismissed());
   const showRcBanner = apps.length > 0 && noRcConnected && !rcBannerDismissed;
   const onDismissRcBanner = useCallback(() => {
@@ -146,17 +151,22 @@ export default function BriefingTab() {
     setRcBannerDismissed(true);
   }, []);
   const onTapRcBanner = useCallback(() => {
-    // Route to the first app's RC paste flow. We don't auto-dismiss
-    // here — if the user backs out without connecting, the banner
-    // should still be visible so they can try again. They tap X to
-    // hide it permanently.
+    // RC is Pro-only — same gate as the per-card Connect button.
+    // We don't auto-dismiss here either; if the user backs out without
+    // converting, the banner should still be visible so they can try
+    // again. They tap X to hide it permanently.
+    const decision = gate.check('connect-revenuecat-pro');
+    if (!decision.allowed) {
+      gate.openPaywall(decision.reason);
+      return;
+    }
     const first = apps[0];
     if (!first) return;
     router.push({
       pathname: '/(onboarding)/revenuecat-paste',
       params: { ascAppId: first.ascId, appName: first.name, bundleId: first.bundleId },
     });
-  }, [apps]);
+  }, [apps, gate]);
 
   return (
     <SafeAreaView
@@ -191,7 +201,11 @@ export default function BriefingTab() {
           <EmptyState />
         ) : (
           briefing.cards.map((card) => (
-            <AppCard key={card.ascAppId} card={card} hasRcConnected={Boolean(rcMeta[card.ascAppId]?.verified)} />
+            <AppCard
+              key={card.ascAppId}
+              card={card}
+              hasRcConnected={Boolean(rcMeta[card.ascAppId]?.verified)}
+            />
           ))
         )}
 
@@ -415,25 +429,58 @@ function HeroStat({ icon, value, label }: { icon: React.ReactNode; value: string
 // Per-app card
 // ---------------------------------------------------------------------------
 
-function AppCard({ card, hasRcConnected }: { card: AppBriefingCard; hasRcConnected: boolean }) {
+function AppCard({
+  card,
+  hasRcConnected,
+}: {
+  card: AppBriefingCard;
+  hasRcConnected: boolean;
+}) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
+  const { isLocked } = useFreeApp();
+  const gate = usePaywallGate();
+  const locked = isLocked(card.ascAppId);
+
+  const handlePress = () => {
+    if (locked) {
+      // Locked card on free tier → straight to paywall with the
+      // primary-gate reason so the right copy renders.
+      gate.openPaywall('add-app-limit');
+      return;
+    }
+    router.push({ pathname: '/(tabs)/releases/[id]', params: { id: card.ascAppId } });
+  };
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${card.appName} — open details`}
-      onPress={() => router.push({ pathname: '/(tabs)/releases/[id]', params: { id: card.ascAppId } })}
+      accessibilityLabel={
+        locked
+          ? `${card.appName} — Pro only, opens paywall`
+          : `${card.appName} — open details`
+      }
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: palette.backgroundElevated, borderColor: palette.border, opacity: pressed ? 0.85 : 1 },
+        {
+          backgroundColor: palette.backgroundElevated,
+          borderColor: palette.border,
+          opacity: pressed ? 0.85 : locked ? 0.7 : 1,
+        },
       ]}
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderText}>
-          <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]} numberOfLines={1}>
-            {card.appName}
-          </ThemedText>
+          <View style={styles.cardTitleRow}>
+            <ThemedText
+              style={[TypeScale.bodyEmph, { color: palette.text, flexShrink: 1 }]}
+              numberOfLines={1}
+            >
+              {card.appName}
+            </ThemedText>
+            {locked && <ProInlineBadge palette={palette} />}
+          </View>
           {card.currentVersionLabel && (
             <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
               {card.currentVersionLabel}
@@ -512,6 +559,22 @@ function AppCard({ card, hasRcConnected }: { card: AppBriefingCard; hasRcConnect
           accessibilityLabel={`Connect RevenueCat for ${card.appName}`}
           onPress={(e) => {
             e.stopPropagation?.();
+            // Two layers of gating, evaluated in the right order:
+            //   1. If the card's app is locked (free user, 2nd+ app),
+            //      route to the "add-app-limit" paywall — explains the
+            //      bigger picture rather than narrowing to "RC is Pro".
+            //   2. Otherwise the user CAN see this app, so we hit the
+            //      RC-specific gate. RC is always Pro-only, so free
+            //      users see the "Connect RevenueCat" paywall copy.
+            if (locked) {
+              gate.openPaywall('add-app-limit');
+              return;
+            }
+            const decision = gate.check('connect-revenuecat-pro');
+            if (!decision.allowed) {
+              gate.openPaywall(decision.reason);
+              return;
+            }
             router.push({
               pathname: '/(onboarding)/revenuecat-paste',
               params: { ascAppId: card.ascAppId, appName: card.appName, bundleId: card.bundleId },
@@ -539,6 +602,14 @@ function AppCard({ card, hasRcConnected }: { card: AppBriefingCard; hasRcConnect
           </ThemedText>
         )}
     </Pressable>
+  );
+}
+
+function ProInlineBadge({ palette }: { palette: typeof Colors.light | typeof Colors.dark }) {
+  return (
+    <View style={[styles.proInlineBadge, { backgroundColor: palette.accentMuted }]}>
+      <ThemedText style={[styles.proInlineBadgeText, { color: palette.accent }]}>PRO</ThemedText>
+    </View>
   );
 }
 
@@ -708,6 +779,21 @@ const styles = StyleSheet.create({
   cardHeaderText: {
     flex: 1,
     gap: 2,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  proInlineBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  proInlineBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   deltaRow: {
     flexDirection: 'row',

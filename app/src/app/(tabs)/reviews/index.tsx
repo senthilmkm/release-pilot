@@ -11,6 +11,8 @@ import { ReviewRowSkeleton } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, TypeScale } from '@/constants/theme';
 import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
+import { useFreeApp } from '@/hooks/use-free-app';
+import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import { describeASCError, toASCError } from '@/lib/api/asc-errors';
 import { useAllAppsQuery, useAllReviewsQuery } from '@/lib/api/asc-queries';
 import { haptic } from '@/lib/utils/haptics';
@@ -43,6 +45,25 @@ export default function ReviewsInboxScreen() {
   const filtered = useMemo(
     () => filterReviews(reviewsResult.reviews, filter),
     [reviewsResult.reviews, filter],
+  );
+
+  const { isLocked } = useFreeApp();
+  const gate = usePaywallGate();
+
+  const handleReviewPress = useCallback(
+    (reviewAscId: string, reviewAppId: string) => {
+      if (isLocked(reviewAppId)) {
+        // Locked app → straight to paywall with the primary-gate reason
+        // (matches the lock badge UX on the Releases tab).
+        gate.openPaywall('add-app-limit');
+        return;
+      }
+      router.push({
+        pathname: '/(tabs)/reviews/[id]',
+        params: { id: reviewAscId, appId: reviewAppId },
+      });
+    },
+    [gate, isLocked],
   );
 
   const onRefresh = useCallback(() => {
@@ -130,12 +151,7 @@ export default function ReviewsInboxScreen() {
           renderItem={({ item }) => (
             <ReviewRow
               review={item}
-              onPress={() =>
-                router.push({
-                  pathname: '/(tabs)/reviews/[id]',
-                  params: { id: item.ascId, appId: item.appId },
-                })
-              }
+              onPress={() => handleReviewPress(item.ascId, item.appId)}
             />
           )}
           ListEmptyComponent={

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,8 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, TypeScale } from '@/constants/theme';
 import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
 import { useNativeSurfaceSync } from '@/hooks/use-native-surface-sync';
+import { useFreeApp } from '@/hooks/use-free-app';
+import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import { describeASCError, toASCError } from '@/lib/api/asc-errors';
 import {
   type AggregatedAppRow,
@@ -19,6 +21,7 @@ import {
   useLatestStatesQuery,
 } from '@/lib/api/asc-queries';
 import { useAccountsStore } from '@/lib/state/accounts';
+import { sortAppsAlphabetically } from '@/lib/subscription/free-app';
 import { haptic } from '@/lib/utils/haptics';
 
 export default function ReleasesListScreen() {
@@ -27,9 +30,27 @@ export default function ReleasesListScreen() {
 
   const accounts = useAccountsStore((s) => s.accounts);
   const appsQuery = useAllAppsQuery();
-  const apps = appsQuery.data?.apps ?? [];
+  const rawApps = appsQuery.data?.apps ?? [];
+  // Sort once here so list order, lock index, and accessibility-label
+  // ordering all agree. Same sort key used by the free-app helper.
+  const apps = useMemo(() => sortAppsAlphabetically(rawApps), [rawApps]);
   const failures = appsQuery.data?.failures ?? [];
   const statesQuery = useLatestStatesQuery({ apps });
+
+  const { isLocked } = useFreeApp();
+  const gate = usePaywallGate();
+
+  const handleAppPress = useCallback(
+    (ascId: string, appIndex: number) => {
+      const decision = gate.check('add-app-limit', { appIndex });
+      if (!decision.allowed) {
+        gate.openPaywall(decision.reason);
+        return;
+      }
+      router.push(`/(tabs)/releases/${ascId}`);
+    },
+    [gate],
+  );
 
   // Keep widget + Live Activity in lock-step with every fresh fetch.
   useNativeSurfaceSync({ apps, snapshots: statesQuery.byAppId });
@@ -103,14 +124,15 @@ export default function ReleasesListScreen() {
         keyExtractor={(item) => `${item.issuerId}:${item.ascId}`}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.two }} />}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <AppRow
             appName={item.name}
             bundleId={item.bundleId}
             teamName={item.teamName}
             snapshot={statesQuery.byAppId.get(item.ascId) ?? null}
             isLoadingState={statesQuery.isLoading && !statesQuery.byAppId.has(item.ascId)}
-            onPress={() => router.push(`/(tabs)/releases/${item.ascId}`)}
+            isLocked={isLocked(item.ascId)}
+            onPress={() => handleAppPress(item.ascId, index)}
           />
         )}
         ListEmptyComponent={

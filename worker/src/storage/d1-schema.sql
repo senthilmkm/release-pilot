@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS devices (
   p8_ciphertext_b64   TEXT NOT NULL,             -- AES-GCM(.p8 PEM) base64
   p8_iv_b64           TEXT NOT NULL,             -- per-row IV (12 bytes)
   p8_salt_b64         TEXT NOT NULL,             -- per-row 16-byte salt mixed into the key
+  is_pro              INTEGER NOT NULL DEFAULT 0,-- 1 = Pro subscriber, 0 = free (no push)
   created_at          INTEGER NOT NULL,          -- epoch seconds
   last_polled_at      INTEGER,                   -- epoch seconds (null = never polled)
   last_polled_ok      INTEGER NOT NULL DEFAULT 1,-- 0 once a poll fails consecutively
@@ -26,6 +27,9 @@ CREATE TABLE IF NOT EXISTS devices (
 );
 
 CREATE INDEX IF NOT EXISTS idx_devices_last_polled ON devices (last_polled_at);
+-- Speeds up the cron poll-cycle's "rows to poll" query which filters
+-- by is_pro = 1 (free users never get pushes — gated front-end too).
+CREATE INDEX IF NOT EXISTS idx_devices_pro_polled ON devices (is_pro, last_polled_at);
 
 -- ---------------------------------------------------------------------------
 -- known_states

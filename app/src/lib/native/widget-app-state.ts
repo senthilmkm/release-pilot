@@ -59,9 +59,19 @@ export const HERO_PRIORITY: Record<SemanticState, number> = {
  *
  * Tier-aware behavior:
  *  - `pro`    → all apps with non-empty snapshots (HERO_PRIORITY-sorted), no headline
- *  - `free`   → top 1 by HERO_PRIORITY + soft "Upgrade to track all apps"
- *               headline IF the user has 2+ apps (no nag for solo-app users)
- *  - `lapsed` → top 1 by HERO_PRIORITY + prominent "Renew Pro to see all apps"
+ *  - `free`   → the SAME 1 app the rest of the app calls "the free app"
+ *               (alphabetically first by name, case-insensitive). Matches
+ *               useFreeApp / Releases / Reviews / Today / Checklist tabs.
+ *               Soft "Upgrade to track all apps" headline IF 2+ apps.
+ *  - `lapsed` → same alphabetically-first pick + prominent
+ *               "Renew Pro to see all apps" headline.
+ *
+ * Why NOT HERO_PRIORITY for free/lapsed:
+ *   If we picked the most-urgent app for free users, the widget would
+ *   surface an app they CAN'T tap into (it would be locked for them in
+ *   the in-app drilldown). The widget would also disagree with which
+ *   app is unlocked in the Releases / Reviews / Today / Checklist tabs.
+ *   The whole point of "1 app free" is to be a consistent rule.
  */
 export function buildSharedState(args: {
   apps: AggregatedAppRow[];
@@ -73,16 +83,21 @@ export function buildSharedState(args: {
     .map((app) => projectApp(app, args.snapshots.get(app.ascId) ?? null, args.nowMs))
     .filter((row): row is WidgetAppRow => row !== null);
 
-  // Order matters: `apps[0]` becomes the hero slot for the lock-screen
-  // rectangle + home-screen small widget, and the first N rows for the
-  // medium/large widgets. We sort by HERO_PRIORITY so the most-urgent
-  // state floats to the top (rejected → approved_waiting → in_review …).
-  // Tiebreaker is alphabetical so the choice is deterministic frame-to-
-  // frame (no flicker between equal-priority apps).
+  // Two sort modes:
+  //  - Pro: HERO_PRIORITY (most-urgent state first). Tiebreaker is
+  //    alphabetical so the choice is deterministic frame-to-frame.
+  //  - Free / lapsed: alphabetical only. Combined with the cap-of-1,
+  //    this guarantees apps[0] is the SAME app the rest of the freemium
+  //    surfaces treat as "the free one". Honors the "1 app for free"
+  //    rule end-to-end and prevents the widget from advertising a
+  //    locked app the user can't actually open.
+  const isPro = args.proStatus === 'pro';
   allRows.sort((a, b) => {
-    const dp = HERO_PRIORITY[a.state] - HERO_PRIORITY[b.state];
-    if (dp !== 0) return dp;
-    return a.name.localeCompare(b.name);
+    if (isPro) {
+      const dp = HERO_PRIORITY[a.state] - HERO_PRIORITY[b.state];
+      if (dp !== 0) return dp;
+    }
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
   });
 
   // Cap visible apps based on subscription tier.

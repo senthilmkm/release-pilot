@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { haptic } from '@/lib/utils/haptics';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
-import { AlertCircle, Inbox } from 'lucide-react-native';
+import { AlertCircle, Inbox, Lock, Sparkles } from 'lucide-react-native';
 
 import { EmptyState } from '@/components/empty-state';
 import { ErrorBanner } from '@/components/error-banner';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing, TypeScale, type SemanticState } from '@/constants/theme';
+import { Colors, Radii, Spacing, TypeScale, type SemanticState } from '@/constants/theme';
+import { useFreeApp } from '@/hooks/use-free-app';
 import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
+import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import { describeASCError, toASCError } from '@/lib/api/asc-errors';
 import { useAllAppsQuery, useVersionsQuery } from '@/lib/api/asc-queries';
 import {
@@ -63,6 +65,9 @@ export default function AppDetailScreen() {
     wasFetching.current = versionsQuery.isFetching;
   }, [versionsQuery.isFetching, versionsQuery.isError]);
 
+  const { isLocked } = useFreeApp();
+  const gate = usePaywallGate();
+
   // ----- Guards --------------------------------------------------------
   if (!id || !account) {
     return (
@@ -72,6 +77,60 @@ export default function AppDetailScreen() {
           title="App not found"
           body="The app you tried to open isn't connected to any of your accounts."
         />
+      </SafeAreaView>
+    );
+  }
+
+  // Free-tier guard: stops widget deep links, push-notification taps, and
+  // stale in-app links from showing release detail for an app the user
+  // can no longer access (e.g. lapsed Pro → Free downgrade). The Releases
+  // tab tap is also gated upstream — this is defense-in-depth.
+  if (isLocked(id)) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
+        <View style={styles.lockedFill}>
+          <View style={[styles.lockBubble, { backgroundColor: palette.accentMuted }]}>
+            <Lock size={32} color={palette.accent} strokeWidth={2} />
+          </View>
+          <ThemedText style={[TypeScale.title2, { color: palette.text, textAlign: 'center' }]}>
+            This app is Pro-only
+          </ThemedText>
+          <ThemedText
+            style={[
+              TypeScale.body,
+              { color: palette.textSecondary, textAlign: 'center', maxWidth: 320 },
+            ]}
+          >
+            The free plan tracks one app with full features. Upgrade to Pro to track every app
+            in your account.
+          </ThemedText>
+          <View style={styles.lockedActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="See Pro plans"
+              onPress={() => gate.openPaywall('add-app-limit')}
+              style={({ pressed }) => [
+                styles.lockedPrimary,
+                { backgroundColor: palette.accent, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Sparkles size={16} color={palette.textInverse} strokeWidth={2.4} />
+              <ThemedText style={[TypeScale.bodyEmph, { color: palette.textInverse }]}>
+                See plans
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back to Releases"
+              onPress={() => router.replace('/(tabs)/releases')}
+              style={({ pressed }) => [styles.lockedSecondary, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <ThemedText style={[TypeScale.subhead, { color: palette.textSecondary }]}>
+                Back to Releases
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -183,5 +242,39 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: Spacing.three,
     marginBottom: Spacing.two,
+  },
+  lockedFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.four,
+  },
+  lockBubble: {
+    width: 72,
+    height: 72,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockedActions: {
+    width: '100%',
+    gap: Spacing.two,
+    marginTop: Spacing.three,
+  },
+  lockedPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one + 2,
+    paddingVertical: Spacing.three,
+    borderRadius: Radii.md,
+    minHeight: 50,
+  },
+  lockedSecondary: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.two,
+    minHeight: 44,
   },
 });

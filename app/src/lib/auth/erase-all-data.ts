@@ -94,7 +94,7 @@ export type EraseResult = {
   ok: boolean;
   /** Per-step outcome — surfaced in Diagnostics so users (and
    *  Apple's review team) can verify what happened. */
-  steps: Array<{ name: string; ok: boolean; detail?: string }>;
+  steps: { name: string; ok: boolean; detail?: string }[];
 };
 
 export async function eraseAllData(): Promise<EraseResult> {

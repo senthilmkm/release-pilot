@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Lock } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing, TypeScale } from '@/constants/theme';
@@ -10,6 +11,10 @@ type Props = {
   apps: AggregatedAppRow[];
   selectedAppId: string | null;
   onSelect: (appId: string) => void;
+  /** Optional predicate: `true` for apps the current user can't access
+   *  (free-tier 2nd+ app). Chip stays tappable so the parent can route
+   *  to paywall; we just paint it as locked. */
+  isLocked?: (ascId: string) => boolean;
 };
 
 /**
@@ -36,7 +41,7 @@ type Props = {
 // the smallest iPhone widths.
 const CHIP_WIDTH = 180;
 
-export function AppPicker({ apps, selectedAppId, onSelect }: Props) {
+export function AppPicker({ apps, selectedAppId, onSelect, isLocked }: Props) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
 
@@ -50,29 +55,47 @@ export function AppPicker({ apps, selectedAppId, onSelect }: Props) {
     >
       {apps.map((app) => {
         const active = app.ascId === selectedAppId;
+        const locked = isLocked?.(app.ascId) ?? false;
+        const accessibilityLabel = locked
+          ? `${app.name}, Pro only — tap to upgrade`
+          : `Run checklist on ${app.name}`;
         return (
           <Pressable
             key={app.ascId}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={`Run checklist on ${app.name}`}
+            accessibilityLabel={accessibilityLabel}
             onPress={() => onSelect(app.ascId)}
             style={({ pressed }) => [
               styles.chip,
               {
                 backgroundColor: active ? palette.accent : palette.backgroundElevated,
                 borderColor: active ? palette.accent : palette.border,
-                opacity: pressed ? 0.85 : 1,
+                opacity: pressed ? 0.85 : locked ? 0.75 : 1,
               },
             ]}
           >
+            {locked && (
+              <View style={styles.lockBubble}>
+                <Lock
+                  size={11}
+                  color={active ? palette.textInverse : palette.textTertiary}
+                  strokeWidth={2.5}
+                />
+              </View>
+            )}
             <ThemedText
               style={[
                 TypeScale.subhead,
                 {
-                  color: active ? palette.textInverse : palette.text,
+                  color: active
+                    ? palette.textInverse
+                    : locked
+                      ? palette.textSecondary
+                      : palette.text,
                   fontWeight: '600',
                   textAlign: 'center',
+                  flexShrink: 1,
                 },
               ]}
               numberOfLines={1}
@@ -99,12 +122,18 @@ const styles = StyleSheet.create({
     // would briefly look round on cold mount.
     width: CHIP_WIDTH,
     height: 40,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     flexShrink: 0,
     overflow: 'hidden',
+  },
+  lockBubble: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

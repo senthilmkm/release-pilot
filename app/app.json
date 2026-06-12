@@ -16,7 +16,6 @@
         "com.apple.security.application-groups": [
           "group.app.releasepilot.shared"
         ],
-        "com.apple.developer.usernotifications.communication": true,
         "aps-environment": "production"
       },
       "privacyManifests": {
@@ -54,16 +53,10 @@
         "NSSupportsLiveActivitiesFrequentUpdates": true,
         "UIBackgroundModes": [
           "fetch",
-          "processing",
           "remote-notification"
         ],
         "BGTaskSchedulerPermittedIdentifiers": [
-          "app.releasepilot.refresh",
           "app.releasepilot.poll"
-        ],
-        "LSApplicationQueriesSchemes": [
-          "mailto",
-          "https"
         ]
       }
     },
@@ -97,7 +90,7 @@
         "entitlementId": "pro",
         "currentOfferingId": "default"
       },
-      "workerUrl": "https://release-pilot.workers.dev",
+      "workerUrl": "https://release-pilot.senthilmkm.workers.dev",
       "router": {},
       "eas": {
         "build": {

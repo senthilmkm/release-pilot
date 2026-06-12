@@ -2,6 +2,8 @@ import { RevenueCatClient } from '@/lib/api/revenuecat-client';
 import { RevenueCatError } from '@/lib/api/revenuecat-errors';
 import { storeRevenueCatSecret } from '@/lib/auth/revenuecat-credentials';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
+import { useSubscriptionStore } from '@/lib/state/subscription';
+import { gateConnectRevenueCat } from '@/lib/subscription/gates';
 
 /**
  * Verify a RevenueCat secret key + project ID against the live API,
@@ -14,6 +16,13 @@ import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
  *
  * Idempotent: re-running with the same ascAppId replaces both stores'
  * entries. Used by the rotate-key path in the More tab.
+ *
+ * SECURITY / GATING: this is the ONE write point for RC credentials, so
+ * we also enforce the `connect-revenuecat-pro` gate here as defense-in-
+ * depth. UI screens (briefing top banner, briefing per-card button, more
+ * tab row, onboarding step) ALL gate at the navigation layer too, but if
+ * any of those misses, this final check prevents free users from leaking
+ * past. Tests + cli-verify cover both layers.
  */
 
 export type VerifyRevenueCatArgs = {
@@ -29,6 +38,21 @@ export type VerifyRevenueCatResult =
 export async function verifyAndPersistRevenueCat(
   args: VerifyRevenueCatArgs,
 ): Promise<VerifyRevenueCatResult> {
+  // 0. Defense-in-depth: RC is Pro-only globally. We delegate to the
+  //    same pure `gateConnectRevenueCat` helper that the UI uses, so if
+  //    the gate logic ever changes (e.g. team plans get added) this
+  //    write point updates automatically.
+  const isPro = useSubscriptionStore.getState().entitlement.isPro;
+  const gateDecision = gateConnectRevenueCat({ isPro });
+  if (!gateDecision.allowed) {
+    return {
+      ok: false,
+      error: new RevenueCatError('pro_required', {
+        detail: 'RevenueCat integration is Pro-only.',
+      }),
+    };
+  }
+
   // 1. Validate shape via RevenueCatClient.create (throws RevenueCatError)
   let client: RevenueCatClient;
   try {

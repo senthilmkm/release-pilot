@@ -103,7 +103,7 @@ Release Pilot Pro:
 • 7-day free trial, then Monthly or Yearly (Yearly saves ~30%)
 • Every app you ship — no app cap
 • Push notifications
-• Lock Screen widgets and Live Activities
+• Every app in your Lock Screen widget (free shows 1) and Live Activities
 • RevenueCat integration
 • Unlimited review replies (with templates)
 • Unlimited pre-submit checklist runs
@@ -215,24 +215,27 @@ This is correct — Release Pilot has no user-generated content visible to other
 ## Privacy Practices
 
 → See `PRIVACY_NUTRITION.md` for the exact answers to the App Privacy questionnaire.
-→ See `PRIVACY_POLICY.md` for the privacy policy to host at `https://releasepilot.app/privacy`.
+→ See `PRIVACY_POLICY.md` for the privacy policy hosted at the URL below.
 
 ---
 
 ## URLs
 
+**Live (use these when filling in ASC for v1.0):**
+
 | Field | Value | Status |
 |---|---|---|
-| **Privacy Policy URL** | `https://releasepilot.app/privacy` | ❌ Must be hosted before submission. See `PRIVACY_POLICY.md` |
-| **Support URL** | `https://releasepilot.app/support` | ❌ Must be hosted. Suggest a simple mailto landing page |
-| **Marketing URL** *(optional)* | `https://releasepilot.app` | ❌ Optional but strongly recommended |
+| **Privacy Policy URL** | `https://senthilmkm.github.io/release-pilot/privacy.html` | ✅ Live (GitHub Pages) |
+| **Support URL** | `https://senthilmkm.github.io/release-pilot/support.html` | ✅ Live (GitHub Pages) |
+| **Marketing URL** *(optional)* | `https://senthilmkm.github.io/release-pilot/` | ✅ Live (GitHub Pages) |
 | **Copyright** | `© 2026 Senthil [your full last name]` | Fill in your name |
 | **Trade Representative Contact** *(only if EU)* | Your name + email | Required for EU distribution per DSA |
 
-**Cheapest path to host:**
-- Push your privacy/support pages as HTML to a GitHub Pages repo
-- Point a custom domain (`releasepilot.app`) at it via Cloudflare DNS
-- Total cost: ~$12/yr for the domain, free hosting
+**Future custom domain (post-launch upgrade, optional):**
+
+Once you buy `releasepilot.app` and point Cloudflare DNS CNAME to `senthilmkm.github.io`, you can swap these to `https://releasepilot.app/privacy` etc. This is a **metadata-only** update in ASC — no binary resubmission required.
+
+Cheapest path: Cloudflare Registrar ~$12/yr + free GitHub Pages hosting.
 
 ---
 

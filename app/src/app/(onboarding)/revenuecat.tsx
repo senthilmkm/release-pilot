@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { OnboardingShell } from '@/features/onboarding/onboarding-shell';
 import { Colors, Radii, Spacing, TypeScale } from '@/constants/theme';
 import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
+import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import { useAllAppsQuery, type AggregatedAppRow } from '@/lib/api/asc-queries';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
 
@@ -115,6 +116,15 @@ export default function RevenueCatOnboardingScreen() {
               connected={Boolean(rcByAppId[app.ascId]?.verified)}
             />
           ))}
+
+          <ThemedText
+            style={[
+              TypeScale.caption,
+              { color: palette.textTertiary, textAlign: 'center', marginTop: Spacing.two },
+            ]}
+          >
+            RevenueCat integration is a Pro feature. Tap an app to see the upgrade options.
+          </ThemedText>
         </View>
 
         {apps.length > 0 && (
@@ -133,8 +143,19 @@ export default function RevenueCatOnboardingScreen() {
 function AppRow({ app, connected }: { app: AggregatedAppRow; connected: boolean }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
+  const gate = usePaywallGate();
 
   const onPress = () => {
+    // RC is Pro-only globally. If the user is still on free during
+    // onboarding (i.e. hasn't reached / activated the trial step yet),
+    // route them to the paywall instead of the paste screen. Saves them
+    // typing in keys only to be rejected by `verifyAndPersistRevenueCat`'s
+    // defense-in-depth check.
+    const decision = gate.check('connect-revenuecat-pro');
+    if (!decision.allowed) {
+      gate.openPaywall(decision.reason);
+      return;
+    }
     router.push({
       pathname: '/(onboarding)/revenuecat-paste',
       params: {

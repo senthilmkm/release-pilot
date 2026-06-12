@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Release Pilot — feature-by-feature comparison of Free, Monthly Pro, and Yearly Pro plans.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<title>Release Pilot — Plan Comparison</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --bg-elev: #f7f7f9;
+    --bg-tint: #fafbfc;
+    --text: #0a0a0a;
+    --text-secondary: #4b5563;
+    --text-tertiary: #9ca3af;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-muted: #dbeafe;
+    --border: #e5e7eb;
+    --code-bg: #f3f4f6;
+    --hero-bg: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%);
+    --success: #059669;
+    --success-bg: #d1fae5;
+    --warn: #b45309;
+    --warn-bg: #fef3c7;
+    --danger: #b91c1c;
+    --gradient: linear-gradient(135deg, #2563eb, #8b5cf6);
+    --gradient-gold: linear-gradient(135deg, #f59e0b, #d97706);
+    --content-max: 1100px;
+    --content-text: 760px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0a0a;
+      --bg-elev: #141414;
+      --bg-tint: #0e0e10;
+      --text: #f5f5f5;
+      --text-secondary: #a3a3a3;
+      --text-tertiary: #6b7280;
+      --accent: #60a5fa;
+      --accent-hover: #93c5fd;
+      --accent-muted: #1e3a8a;
+      --border: #262626;
+      --code-bg: #1a1a1a;
+      --hero-bg: linear-gradient(180deg, #0a0a0a 0%, #0d1525 100%);
+      --success: #10b981;
+      --success-bg: #064e3b;
+      --warn: #fbbf24;
+      --warn-bg: #422006;
+      --danger: #ef4444;
+      --gradient: linear-gradient(135deg, #60a5fa, #a78bfa);
+      --gradient-gold: linear-gradient(135deg, #fbbf24, #f59e0b);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ========== HEADER ========== */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in oklab, var(--bg) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+  }
+  .nav {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .brand .badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--gradient);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .updated {
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+
+  /* ========== HERO ========== */
+  .hero {
+    background: var(--hero-bg);
+    padding: 64px 24px 48px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+  .hero .gradient-text {
+    background: var(--gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p {
+    font-size: 18px;
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* ========== SECTIONS ========== */
+  section {
+    padding: 56px 24px;
+    max-width: var(--content-max);
+    margin: 0 auto;
+  }
+  section h2 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  section .section-sub {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+
+  /* ========== PRICING CARDS ========== */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 860px) {
+    .pricing-grid { grid-template-columns: 1fr; }
+  }
+  .price-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .price-card.featured {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+  }
+  .badge-best {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    background: var(--gradient-gold);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 5px 10px;
+    border-radius: 999px;
+  }
+  .badge-current {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: var(--text-secondary);
+    color: var(--bg);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 5px 10px;
+    border-radius: 999px;
+  }
+  .price-card .name {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .price-card .price {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .price-card .cadence {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+  }
+  .price-card .equiv {
+    font-size: 13px;
+    color: var(--success);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .price-card .equiv.invisible { visibility: hidden; }
+  .price-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .price-card ul li {
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 6px 0;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .price-card ul li::before {
+    content: "✓";
+    color: var(--success);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .price-card ul li.x {
+    color: var(--text-tertiary);
+    text-decoration: line-through;
+  }
+  .price-card ul li.x::before {
+    content: "✕";
+    color: var(--text-tertiary);
+    text-decoration: none;
+  }
+  .price-card ul li.note {
+    color: var(--warn);
+    font-weight: 500;
+  }
+  .price-card ul li.note::before {
+    content: "·";
+    color: var(--warn);
+  }
+
+  /* ========== TABLE ========== */
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg-elev);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead th {
+    text-align: left;
+    padding: 16px 18px;
+    background: var(--bg-tint);
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+  }
+  thead th:nth-child(n+2) {
+    text-align: center;
+    width: 18%;
+  }
+  thead th.col-free { color: var(--text-tertiary); }
+  thead th.col-monthly { color: var(--accent); }
+  thead th.col-yearly { color: var(--accent); position: relative; }
+  thead th.col-yearly::after {
+    content: "BEST VALUE";
+    display: block;
+    font-size: 9px;
+    color: var(--success);
+    margin-top: 4px;
+    font-weight: 800;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr.section-row {
+    background: var(--bg-tint);
+  }
+  tbody tr.section-row td {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    padding: 12px 18px;
+  }
+  tbody td {
+    padding: 14px 18px;
+    vertical-align: top;
+  }
+  tbody td.feat {
+    font-weight: 500;
+    color: var(--text);
+  }
+  tbody td .sub {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+    line-height: 1.4;
+    font-weight: 400;
+  }
+  tbody td.center {
+    text-align: center;
+    font-weight: 600;
+  }
+  .yes {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--success-bg);
+    color: var(--success);
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .no {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--text-tertiary) 20%, transparent);
+    color: var(--text-tertiary);
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .limit {
+    font-size: 13px;
+    color: var(--warn);
+    font-weight: 700;
+  }
+  .unlim {
+    font-size: 13px;
+    color: var(--success);
+    font-weight: 700;
+  }
+
+  /* ========== CALLOUT ========== */
+  .callout {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 24px 0;
+  }
+  .callout h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .callout p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout.info { border-left: 3px solid var(--accent); }
+  .callout.warn { border-left: 3px solid var(--warn); }
+  .callout.success { border-left: 3px solid var(--success); }
+
+  /* ========== TWO-COL COMPARE ========== */
+  .vs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 720px) {
+    .vs-grid { grid-template-columns: 1fr; }
+  }
+  .vs-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .vs-card.featured { border-color: var(--accent); }
+  .vs-card h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .vs-card h4 .tag {
+    font-size: 11px;
+    background: var(--accent-muted);
+    color: var(--accent);
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+  .vs-card ul { list-style: none; padding: 0; margin: 0; }
+  .vs-card ul li {
+    font-size: 14px;
+    padding: 6px 0;
+    color: var(--text-secondary);
+    border-bottom: 1px dashed var(--border);
+  }
+  .vs-card ul li:last-child { border-bottom: none; }
+  .vs-card ul li strong { color: var(--text); font-weight: 600; }
+
+  /* ========== FAQ ========== */
+  details {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+  }
+  details[open] { background: var(--bg-elev); }
+  details summary {
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after {
+    content: "+";
+    color: var(--text-tertiary);
+    font-size: 20px;
+    font-weight: 300;
+    transition: transform 0.2s;
+  }
+  details[open] summary::after { content: "−"; }
+  details > p,
+  details > ul {
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  details > ul {
+    padding-left: 20px;
+  }
+
+  /* ========== FOOTER ========== */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+  }
+  footer a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  footer a:hover { color: var(--accent); }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="#top">
+      <span class="badge">R</span>
+      Release Pilot
+    </a>
+    <span class="updated">Updated Jun 12, 2026 · v1.0</span>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <h1>Free, Monthly, or <span class="gradient-text">Yearly</span> — what changes?</h1>
+  <p>A complete, no-marketing-fluff comparison of every feature, limit, and gate across all three plans. Built from the actual gating logic in the app.</p>
+</section>
+
+<!-- ============================================================ -->
+<!-- PRICING SUMMARY                                              -->
+<!-- ============================================================ -->
+<section>
+  <h2>At a glance</h2>
+  <p class="section-sub">Pick the plan that matches how you ship.</p>
+
+  <div class="pricing-grid">
+
+    <!-- FREE -->
+    <div class="price-card">
+      <div class="name">Free</div>
+      <div class="price">$0</div>
+      <div class="cadence">forever</div>
+      <div class="equiv invisible">placeholder</div>
+      <ul>
+        <li>1 App Store Connect account</li>
+        <li>1 app tracked with full features</li>
+        <li>3 pre-submit checklist runs / week</li>
+        <li>2 review replies / month</li>
+        <li>Releases dashboard</li>
+        <li class="x">Push notifications</li>
+        <li class="x">Lock-Screen / Home-Screen widget</li>
+        <li class="x">Live Activities (review-wait tracker)</li>
+        <li class="x">Today tab (RevenueCat metrics)</li>
+      </ul>
+    </div>
+
+    <!-- MONTHLY -->
+    <div class="price-card">
+      <div class="name">Pro · Monthly</div>
+      <div class="price">$4.99</div>
+      <div class="cadence">per month, auto-renews</div>
+      <div class="equiv invisible">placeholder</div>
+      <ul>
+        <li>Unlimited ASC accounts</li>
+        <li>Unlimited apps tracked</li>
+        <li>Unlimited checklist runs</li>
+        <li>Unlimited review replies</li>
+        <li>Push notifications (every state change)</li>
+        <li>Lock-Screen + Home-Screen widget</li>
+        <li>Live Activities</li>
+        <li>Today tab with RevenueCat metrics</li>
+        <li class="note">No free trial · cancel anytime</li>
+      </ul>
+    </div>
+
+    <!-- YEARLY -->
+    <div class="price-card featured">
+      <div class="badge-best">Best value · save 33%</div>
+      <div class="name">Pro · Yearly</div>
+      <div class="price">$39.99</div>
+      <div class="cadence">per year, auto-renews</div>
+      <div class="equiv">≈ $3.33/month · save $19.89/yr</div>
+      <ul>
+        <li>Everything in Pro · Monthly</li>
+        <li>7-day free trial for new subscribers</li>
+        <li>1 charge per year (less friction)</li>
+        <li>Locks in today's price for 12 months</li>
+        <li>Cancel anytime in iOS Settings</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- FEATURE COMPARISON TABLE                                     -->
+<!-- ============================================================ -->
+<section>
+  <h2>Feature-by-feature comparison</h2>
+  <p class="section-sub">Every gate in the app, made explicit. Yearly and Monthly unlock the same features — only the billing cadence and trial differ.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th class="col-free">Free</th>
+          <th class="col-monthly">Monthly</th>
+          <th class="col-yearly">Yearly</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- ACCOUNTS & APPS -->
+        <tr class="section-row"><td colspan="4">Accounts &amp; apps</td></tr>
+
+        <tr>
+          <td class="feat">App Store Connect accounts<div class="sub">For consultants who ship from multiple teams</div></td>
+          <td class="center"><span class="limit">1</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Apps tracked with full features<div class="sub">App #2+ is paywalled on Free, alphabetical order</div></td>
+          <td class="center"><span class="limit">1</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+        </tr>
+
+        <!-- DASHBOARD -->
+        <tr class="section-row"><td colspan="4">Dashboard &amp; data</td></tr>
+
+        <tr>
+          <td class="feat">Releases tab<div class="sub">Apps, versions, build states, release dates</div></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Reviews tab — read<div class="sub">Read every customer review for your apps</div></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Reviews tab — reply<div class="sub">One-tap replies posted via ASC API</div></td>
+          <td class="center"><span class="limit">2 / month</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Pre-submit checklist<div class="sub">Localizations, screenshots, metadata pre-flight checks</div></td>
+          <td class="center"><span class="limit">3 / week</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+          <td class="center"><span class="unlim">Unlimited</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Today tab — RevenueCat metrics<div class="sub">Live MRR, revenue, active subscribers per app</div></td>
+          <td class="center"><span class="no">✕</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <!-- NOTIFICATIONS -->
+        <tr class="section-row"><td colspan="4">Notifications &amp; ambient surfaces</td></tr>
+
+        <tr>
+          <td class="feat">Push notifications<div class="sub">"Waiting for Review", "In Review", "Approved", "Rejected", "Ready for Sale"</div></td>
+          <td class="center"><span class="no">✕</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Lock-Screen widget<div class="sub">Latest build state, review wait time</div></td>
+          <td class="center"><span class="no">✕</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Home-Screen widget<div class="sub">All apps at a glance — small, medium, large sizes</div></td>
+          <td class="center"><span class="no">✕</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Live Activity<div class="sub">Auto-starts when a build hits "Waiting for Review"</div></td>
+          <td class="center"><span class="no">✕</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <!-- INTEGRATIONS -->
+        <tr class="section-row"><td colspan="4">Integrations</td></tr>
+
+        <tr>
+          <td class="feat">Connect RevenueCat<div class="sub">Required for Today tab to populate</div></td>
+          <td class="center"><span class="no">✕</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Background refresh<div class="sub">Polls ASC every ~30 min for state changes</div></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <!-- TRIAL & BILLING -->
+        <tr class="section-row"><td colspan="4">Trial &amp; billing</td></tr>
+
+        <tr>
+          <td class="feat">Free trial<div class="sub">For new subscribers, applied automatically at checkout</div></td>
+          <td class="center">—</td>
+          <td class="center"><span class="no">✕</span></td>
+          <td class="center"><span class="unlim">7 days</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Auto-renews</td>
+          <td class="center">—</td>
+          <td class="center"><span class="yes">✓</span><div class="sub">Every month</div></td>
+          <td class="center"><span class="yes">✓</span><div class="sub">Every year</div></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Cancel anytime<div class="sub">iOS Settings → Apple ID → Subscriptions</div></td>
+          <td class="center">—</td>
+          <td class="center"><span class="yes">✓</span></td>
+          <td class="center"><span class="yes">✓</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Cost per month (effective)</td>
+          <td class="center">$0</td>
+          <td class="center"><span class="limit">$4.99</span></td>
+          <td class="center"><span class="unlim">$3.33</span></td>
+        </tr>
+
+        <tr>
+          <td class="feat">Annual cost</td>
+          <td class="center">$0</td>
+          <td class="center"><span class="limit">$59.88</span></td>
+          <td class="center"><span class="unlim">$39.99</span></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- WHO EACH PLAN IS FOR                                         -->
+<!-- ============================================================ -->
+<section>
+  <h2>Who each plan is for</h2>
+  <p class="section-sub">A quick decision guide based on your situation.</p>
+
+  <div class="vs-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="vs-card">
+      <h4>Free</h4>
+      <ul>
+        <li><strong>Solo dev with your first app.</strong> Ship calmly with weekly checklists + occasional review replies.</li>
+        <li><strong>Trying the app.</strong> Connect one ASC team, one app, kick the tires for as long as you want.</li>
+        <li><strong>Don't need push or widgets.</strong> Happy refreshing ASC manually a few times a week.</li>
+      </ul>
+    </div>
+
+    <div class="vs-card">
+      <h4>Pro · Monthly <span class="tag">FLEX</span></h4>
+      <ul>
+        <li><strong>Testing the waters.</strong> Try Pro for a month, cancel anytime in Settings.</li>
+        <li><strong>Shipping season only.</strong> Need Pro during a 6-week submission window, then pause.</li>
+        <li><strong>Don't qualify for the trial.</strong> Used the yearly trial in the past — monthly is the next option.</li>
+      </ul>
+    </div>
+
+    <div class="vs-card featured">
+      <h4>Pro · Yearly <span class="tag">BEST</span></h4>
+      <ul>
+        <li><strong>Multi-app indie dev.</strong> Ship 2+ apps continuously and want push + widgets every day.</li>
+        <li><strong>First-time Pro.</strong> 7-day free trial lets you fully validate before paying.</li>
+        <li><strong>Want the best price.</strong> $3.33/mo equivalent vs $4.99 on monthly — 33% cheaper.</li>
+        <li><strong>Lock in v1.0 pricing.</strong> Future price changes don't hit you until your next renewal.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- MONTHLY vs YEARLY                                            -->
+<!-- ============================================================ -->
+<section>
+  <h2>Monthly vs Yearly — the only differences</h2>
+  <p class="section-sub">Both Pro tiers unlock <strong>exactly the same features</strong>. The differences are purely commercial:</p>
+
+  <div class="vs-grid">
+    <div class="vs-card">
+      <h4>Pro · Monthly</h4>
+      <ul>
+        <li><strong>Price:</strong> $4.99 / month</li>
+        <li><strong>Cadence:</strong> 12 charges per year</li>
+        <li><strong>Annual cost:</strong> $59.88</li>
+        <li><strong>Free trial:</strong> No</li>
+        <li><strong>Cancel friction:</strong> Lowest — you can drop after 1 month</li>
+        <li><strong>Best for:</strong> Short-term Pro need (a release window, evaluating long-term)</li>
+      </ul>
+    </div>
+
+    <div class="vs-card featured">
+      <h4>Pro · Yearly</h4>
+      <ul>
+        <li><strong>Price:</strong> $39.99 / year</li>
+        <li><strong>Cadence:</strong> 1 charge per year</li>
+        <li><strong>Annual cost:</strong> $39.99 <em>(save $19.89)</em></li>
+        <li><strong>Free trial:</strong> 7 days, new subscribers only</li>
+        <li><strong>Cancel friction:</strong> Trivially — Settings → Subscriptions → Cancel. You keep Pro until end of paid period.</li>
+        <li><strong>Best for:</strong> Anyone using Pro every day</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <h3>How plan-switching works inside iOS</h3>
+    <p>You can switch between Monthly and Yearly anytime — Apple handles the math:</p>
+    <ul style="padding-left: 20px; color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+      <li><strong>Monthly → Yearly:</strong> Upgrade is immediate. Apple prorates the unused portion of your monthly bill as credit toward the yearly.</li>
+      <li><strong>Yearly → Monthly:</strong> Downgrade takes effect at the <em>end</em> of your current yearly term. You keep Pro until then, then start being billed monthly.</li>
+      <li><strong>Either Pro → Free:</strong> Cancel in iOS Settings. You stay Pro until your current billing period ends; on expiry the app drops to Free limits automatically.</li>
+    </ul>
+    <p>The switcher lives in the app under <strong>More → Subscription → Change plan</strong>.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- TRIAL MECHANICS                                              -->
+<!-- ============================================================ -->
+<section>
+  <h2>How the 7-day free trial works</h2>
+  <p class="section-sub">Only on Pro · Yearly, only for new subscribers.</p>
+
+  <div class="callout success">
+    <h3>Eligibility</h3>
+    <p>The 7-day trial is offered by <strong>Apple's StoreKit</strong>, not by Release Pilot. You're eligible if:</p>
+    <ul style="padding-left: 20px; color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+      <li>You've never started a Pro · Yearly trial for Release Pilot before, AND</li>
+      <li>Your Apple ID has not previously subscribed to <code>release_pilot_pro_yearly</code></li>
+    </ul>
+    <p>If you've used the trial in the past, the paywall will simply show the regular $39.99/year price with no trial — same product, just no intro offer.</p>
+  </div>
+
+  <div class="callout warn">
+    <h3>The clock</h3>
+    <p>The trial starts the moment you confirm the StoreKit sheet. You are <strong>not charged</strong> for 7 days. On day 7 your card is charged $39.99 and Pro · Yearly begins.</p>
+    <p>You can cancel anytime during the 7 days — iOS Settings → Apple ID → Subscriptions → Release Pilot → Cancel. You keep Pro features through the end of day 7, then drop to Free.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- FAQ                                                          -->
+<!-- ============================================================ -->
+<section>
+  <h2>Frequently asked questions</h2>
+  <p class="section-sub">Common questions about how the plans behave.</p>
+
+  <details>
+    <summary>Is there a feature difference between Monthly and Yearly Pro?</summary>
+    <p>No. They unlock identical features. Yearly is just cheaper per month and includes a 7-day trial for new subscribers.</p>
+  </details>
+
+  <details>
+    <summary>What happens to my data if I downgrade from Pro to Free?</summary>
+    <p>Nothing is deleted. Your connected ASC accounts, RevenueCat keys, and cached data all stay. But these Pro behaviors stop:</p>
+    <ul>
+      <li>Push notifications no longer fire</li>
+      <li>Lock-Screen and Home-Screen widgets show empty state</li>
+      <li>Live Activities don't start for new submissions</li>
+      <li>Today tab stops refreshing RevenueCat metrics</li>
+      <li>Apps #2+ (alphabetically) and ASC accounts #2+ are paywalled when you try to interact with them</li>
+      <li>Checklist and review-reply quotas reset to Free limits</li>
+    </ul>
+    <p>If you re-subscribe later, everything resumes immediately with no setup loss.</p>
+  </details>
+
+  <details>
+    <summary>Why is the Today tab Pro-only?</summary>
+    <p>The Today tab depends on you connecting your RevenueCat project, and connecting RevenueCat is itself a Pro gate. The reasoning: RC integration is a serious-dev signal — once you're tracking subscription revenue, you've usually crossed the line from hobby to business and Pro features pay for themselves immediately.</p>
+  </details>
+
+  <details>
+    <summary>What about the 1-app limit on Free — which app does it pick?</summary>
+    <p>Free users get full features for the <strong>alphabetically first</strong> app in their ASC account. App #2, #3, etc. show as "Pro required" — tapping them opens the paywall with a clear "Track all your apps" message.</p>
+    <p>Sort order is deterministic so the gating is consistent no matter what you tap first.</p>
+  </details>
+
+  <details>
+    <summary>Can I switch from Yearly to Monthly mid-term?</summary>
+    <p>Yes, but the change happens at the end of your current yearly period — not immediately. You keep Pro · Yearly until renewal, then start being billed $4.99/month from that day. Apple handles all of this; Release Pilot just reads your active subscription.</p>
+  </details>
+
+  <details>
+    <summary>What if I'm in the 7-day trial and cancel?</summary>
+    <p>You keep Pro features through the end of day 7 with no charge, then drop to Free on day 8. To cancel: iOS Settings → Apple ID → Subscriptions → Release Pilot → Cancel. Or in the app: More → Manage Subscription.</p>
+  </details>
+
+  <details>
+    <summary>Do refunds happen if I cancel mid-cycle?</summary>
+    <p>Apple handles all refunds — not Release Pilot. You can request a refund at <a href="https://reportaproblem.apple.com" style="color: var(--accent);">reportaproblem.apple.com</a>. Cancellation alone does not refund you; it just stops the <em>next</em> renewal.</p>
+  </details>
+
+  <details>
+    <summary>Is there a Lifetime plan?</summary>
+    <p>Not at launch. The app's pricing engine supports lifetime (and there's already code wired for it), but we want to validate the subscription pricing first. If demand is high we'll add lifetime in a future update.</p>
+  </details>
+
+  <details>
+    <summary>Family Sharing?</summary>
+    <p>Not in v1.0. May be enabled in a future update once we've validated the audience.</p>
+  </details>
+
+  <details>
+    <summary>What's the "Pro · Lifetime" tier I see in the app code?</summary>
+    <p>It's a tier we've reserved for a future lifetime IAP. Until we publish a lifetime product in ASC, no one can subscribe to it — even though the code recognizes it.</p>
+  </details>
+</section>
+
+<footer>
+  <p>
+    Release Pilot · <a href="https://senthil930.github.io/release-pilot-marketing/">releasepilot.app</a> ·
+    <a href="https://senthil930.github.io/release-pilot-marketing/privacy.html">Privacy</a> ·
+    <a href="https://senthil930.github.io/release-pilot-marketing/support.html">Support</a>
+  </p>
+  <p style="margin-top: 8px;">Auto-renewable subscriptions managed by Apple. Cancel anytime in iOS Settings.</p>
+</footer>
+
+</body>
+</html>

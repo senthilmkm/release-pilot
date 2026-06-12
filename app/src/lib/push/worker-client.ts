@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
  * loads in early Phase 6 before the worker is deployed.
  */
 
-const DEFAULT_WORKER_URL = 'https://release-pilot.workers.dev';
+const DEFAULT_WORKER_URL = 'https://release-pilot.senthilmkm.workers.dev';
 
 function workerBaseUrl(): string {
   const fromExtras = (Constants.expoConfig?.extra as { workerUrl?: string } | undefined)
@@ -22,6 +22,15 @@ export type RegisterArgs = {
   issuerId: string;
   keyId: string;
   p8PEM: string;
+  /** Pro entitlement at the time of registration. The worker stores this
+   *  on the device row and the cron poll cycle skips rows with isPro=false.
+   *  Updated independently via `setPro` when the subscription changes. */
+  isPro: boolean;
+};
+
+export type SetProArgs = {
+  deviceToken: string;
+  isPro: boolean;
 };
 
 export type WorkerResponse<T> =
@@ -76,7 +85,7 @@ export const WorkerClient = {
     }
   },
 
-  async register(args: RegisterArgs): Promise<WorkerResponse<{ registered: boolean }>> {
+  async register(args: RegisterArgs): Promise<WorkerResponse<{ registered: boolean; isPro: boolean }>> {
     return post('/v1/register', args);
   },
 
@@ -88,5 +97,14 @@ export const WorkerClient = {
     WorkerResponse<{ polled: number; pushed?: number; errors?: number; skipped?: string; retryAfter?: number }>
   > {
     return post('/v1/refresh', args);
+  },
+
+  /**
+   * Lightweight isPro flip — no .p8 needed so no Face ID prompt. Called
+   * by the subscription-lifecycle watcher on every isPro change. Safe to
+   * call on every app launch as a defensive sync.
+   */
+  async setPro(args: SetProArgs): Promise<WorkerResponse<{ updated: number; isPro: boolean }>> {
+    return post('/v1/set-pro', args);
   },
 };

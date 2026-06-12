@@ -29,7 +29,7 @@ export default function TrialScreen() {
   const features = [
     'Track every app in your portfolio',
     'Push notifications when status changes',
-    'Lock Screen widget — replaces 4 dashboards',
+    'Every app in your Lock Screen widget (free shows 1)',
     'Lock Screen Live Activity during review',
     'RevenueCat integration on the Today tab',
     'Unlimited review replies from your phone',

@@ -175,12 +175,20 @@ export default function MoreTab() {
 
   const handleConnectRevenueCat = useCallback(
     (ascAppId: string, appName: string, bundleId: string) => {
+      // RC connect is always Pro-only — for any app, on any tier. Free
+      // users get the paywall with the "Connect RevenueCat" copy.
+      // (Disconnect is NOT gated — users can always revoke a stored key.)
+      const decision = paywall.check('connect-revenuecat-pro');
+      if (!decision.allowed) {
+        paywall.openPaywall(decision.reason);
+        return;
+      }
       router.push({
         pathname: '/(onboarding)/revenuecat-paste',
         params: { ascAppId, appName, bundleId },
       });
     },
-    [],
+    [paywall],
   );
 
   return (
@@ -451,12 +459,27 @@ export default function MoreTab() {
           )}
         </View>
 
-        {/* --- Notifications --- */}
+        {/* --- Notifications ---
+            Tri-state row that combines iOS permission AND Pro entitlement.
+            Push notifications are Pro-only, so a free user with iOS perm
+            granted still sees "Pro feature" (not "Enabled") because the
+            worker won't actually deliver pushes to their device. Tap
+            routes to paywall (free) or iOS Settings (pro). */}
         <SectionLabel palette={palette}>NOTIFICATIONS</SectionLabel>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Push notifications: ${notifPerm}. Tap to open iOS Settings.`}
-          onPress={() => Linking.openSettings()}
+          accessibilityLabel={
+            entitlement.isPro
+              ? `Push notifications: ${notifPerm}. Tap to open iOS Settings.`
+              : 'Push notifications are a Pro feature. Tap to see plans.'
+          }
+          onPress={() => {
+            if (!entitlement.isPro) {
+              paywall.openPaywall('push-notifications-pro');
+              return;
+            }
+            Linking.openSettings();
+          }}
           style={[styles.card, { backgroundColor: palette.backgroundElevated }]}
         >
           <View style={styles.cardRow}>
@@ -464,16 +487,19 @@ export default function MoreTab() {
               style={[
                 styles.iconBubble,
                 {
-                  backgroundColor:
-                    notifPerm === 'granted'
+                  backgroundColor: !entitlement.isPro
+                    ? palette.accentMuted
+                    : notifPerm === 'granted'
                       ? palette.successBg
                       : notifPerm === 'denied'
-                      ? palette.destructiveMuted
-                      : palette.backgroundSelected,
+                        ? palette.destructiveMuted
+                        : palette.backgroundSelected,
                 },
               ]}
             >
-              {notifPerm === 'granted' ? (
+              {!entitlement.isPro ? (
+                <Bell size={18} color={palette.accent} strokeWidth={2.2} />
+              ) : notifPerm === 'granted' ? (
                 <CheckCircle2 size={18} color={palette.successFg} strokeWidth={2.2} />
               ) : notifPerm === 'denied' ? (
                 <BellOff size={18} color={palette.destructive} strokeWidth={2.2} />
@@ -486,13 +512,15 @@ export default function MoreTab() {
                 Push notifications
               </ThemedText>
               <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
-                {notifPerm === 'granted'
-                  ? 'Enabled · you\'ll be alerted on state changes'
-                  : notifPerm === 'denied'
-                  ? 'Disabled in iOS Settings — tap to enable'
-                  : notifPerm === 'undetermined'
-                  ? 'Not yet enabled — tap to allow'
-                  : 'Not available on this device'}
+                {!entitlement.isPro
+                  ? 'Pro · get pushed when a release changes state'
+                  : notifPerm === 'granted'
+                    ? 'Enabled · you\'ll be alerted on state changes'
+                    : notifPerm === 'denied'
+                      ? 'Disabled in iOS Settings — tap to enable'
+                      : notifPerm === 'undetermined'
+                        ? 'Not yet enabled — tap to allow'
+                        : 'Not available on this device'}
               </ThemedText>
             </View>
             <ExternalLink size={16} color={palette.textTertiary} strokeWidth={2.2} />
@@ -518,7 +546,7 @@ export default function MoreTab() {
               <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
                 {entitlement.isPro
                   ? 'Six sizes, including Lock Screen — see all your apps at a glance'
-                  : 'Pro · One widget that replaces ASC, RevenueCat, and email'}
+                  : 'Six sizes, including Lock Screen · free shows 1 app, Pro shows all'}
               </ThemedText>
             </View>
             <ChevronRight size={18} color={palette.textTertiary} strokeWidth={2.2} />

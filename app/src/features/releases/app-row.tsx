@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Lock } from 'lucide-react-native';
 
 import { StateBadge } from '@/components/state-badge';
 import { ThemedText } from '@/components/themed-text';
@@ -16,6 +16,10 @@ type Props = {
   snapshot: LatestStateSnapshot | null;
   /** True when the state query for THIS app is still in-flight. */
   isLoadingState?: boolean;
+  /** True when the app is locked behind the Pro paywall (free-tier user's
+   *  2nd+ app). Row stays tappable — the parent decides whether to open
+   *  the detail screen or the paywall. We just show the visual affordance. */
+  isLocked?: boolean;
   onPress?: () => void;
 };
 
@@ -33,6 +37,7 @@ export function AppRow({
   teamName,
   snapshot,
   isLoadingState,
+  isLocked,
   onPress,
 }: Props) {
   const scheme = useResolvedScheme();
@@ -40,9 +45,12 @@ export function AppRow({
 
   const initial = appName.trim().charAt(0).toUpperCase() || '?';
 
-  const accessibilityLabel = snapshot && !snapshot.isEmpty
-    ? `${appName}, v${snapshot.versionString} ${snapshot.state.replaceAll('_', ' ')}`
-    : `${appName}, ${teamName}`;
+  const accessibilityLabel = (() => {
+    const base = snapshot && !snapshot.isEmpty
+      ? `${appName}, v${snapshot.versionString} ${snapshot.state.replaceAll('_', ' ')}`
+      : `${appName}, ${teamName}`;
+    return isLocked ? `${base}. Pro only — opens paywall.` : base;
+  })();
 
   return (
     <Pressable
@@ -57,16 +65,30 @@ export function AppRow({
         },
       ]}
     >
-      <View style={[styles.icon, { backgroundColor: palette.accent }]}>
+      <View
+        style={[
+          styles.icon,
+          { backgroundColor: isLocked ? palette.textTertiary : palette.accent },
+        ]}
+      >
         <ThemedText style={[TypeScale.title3, { color: '#FFFFFF' }]}>
           {initial}
         </ThemedText>
       </View>
 
       <View style={styles.text}>
-        <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]} numberOfLines={1}>
-          {appName}
-        </ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText
+            style={[
+              TypeScale.bodyEmph,
+              { color: isLocked ? palette.textSecondary : palette.text, flexShrink: 1 },
+            ]}
+            numberOfLines={1}
+          >
+            {appName}
+          </ThemedText>
+          {isLocked && <ProBadge palette={palette} />}
+        </View>
         <ThemedText
           style={[TypeScale.footnote, { color: palette.textSecondary }]}
           numberOfLines={1}
@@ -103,6 +125,15 @@ export function AppRow({
   );
 }
 
+function ProBadge({ palette }: { palette: typeof Colors.light | typeof Colors.dark }) {
+  return (
+    <View style={[styles.proBadge, { backgroundColor: palette.accentMuted }]}>
+      <Lock size={10} color={palette.accent} strokeWidth={2.5} />
+      <ThemedText style={[styles.proBadgeText, { color: palette.accent }]}>PRO</ThemedText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -122,6 +153,24 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     gap: 2,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  proBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   stateRow: {
     marginTop: Spacing.one + 2,

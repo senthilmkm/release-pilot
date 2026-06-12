@@ -3,8 +3,11 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
 import { usePushRegistrationStore } from '@/lib/state/push-registration';
+import { useSubscriptionStore } from '@/lib/state/subscription';
+import { gateEnablePushNotifications } from '@/lib/subscription/gates';
 import { registerDeviceWithWorker } from './register-device';
 import {
+  cancelBriefingNotification,
   isBriefingNotificationScheduled,
   scheduleBriefingNotification,
 } from './schedule-briefing';
@@ -104,18 +107,26 @@ function installResponseHandler(): () => void {
 
 /**
  * Self-heal: every app launch, confirm the daily briefing notification
- * is still scheduled. If it's missing (because the user toggled
- * notifications off then back on, or iOS dropped it after a reinstall),
- * re-create it. Cheap call — single `getAllScheduledNotificationsAsync`
- * lookup + conditional re-schedule.
+ * is in the right state for the user's current subscription:
+ *
+ *  - Pro + iOS permission granted → make sure it's scheduled (re-create
+ *    if iOS dropped it after a reinstall or notif-off/on toggle)
+ *  - Free OR iOS permission not granted → make sure it's NOT scheduled
+ *    (cleans up any local push left over from a previous Pro state)
+ *
+ * Both branches are no-ops in the steady state — cheap call.
  */
 async function ensureBriefingScheduled(): Promise<void> {
   try {
     const perm = await Notifications.getPermissionsAsync();
-    if (perm.status !== 'granted') return;
+    const isPro = useSubscriptionStore.getState().entitlement.isPro;
+    const shouldBeScheduled =
+      perm.status === 'granted' && gateEnablePushNotifications({ isPro }).allowed;
     const isScheduled = await isBriefingNotificationScheduled();
-    if (!isScheduled) {
+    if (shouldBeScheduled && !isScheduled) {
       await scheduleBriefingNotification();
+    } else if (!shouldBeScheduled && isScheduled) {
+      await cancelBriefingNotification();
     }
   } catch {
     // Don't block app startup on notification plumbing errors

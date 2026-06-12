@@ -13,22 +13,42 @@ Thank you for reviewing Release Pilot.
 
 Release Pilot is an App Store Connect companion built for solo iOS developers. It connects to your own App Store Connect account using an **App Store Connect API key that you (the developer) generate yourself in App Store Connect → Users and Access → Integrations → Keys**. The app then reads release/build/review data from Apple's public App Store Connect API directly from the device, and surfaces it in a single multi-app dashboard, push notifications, widgets, and a Live Activity.
 
-### Reviewing the app without generating your own API key
+### Reviewing the app — credentials we've prepared for you
 
-Because the app authenticates against the reviewer's own Apple Developer account, there is no shared username/password we can provide. We've prepared two options for you:
+Release Pilot does **not** use an Apple ID + password sign-in. It authenticates against the App Store Connect API using a **`.p8` API key + Issuer ID + Key ID** — and nothing else. To let you test the full app end-to-end, we've generated a **dedicated review API key in our own ASC account** that you can paste into the app. Use these exact credentials in the onboarding flow:
 
-**Option A — Use a sandbox test ASC team we've prepared for you:**
-- Apple ID: `releasepilot-review@[YOUR EMAIL DOMAIN]`
-- Password: `[FILL IN]`
-- Issuer ID: `[FILL IN — from sandbox team]`
-- Key ID: `[FILL IN]`
-- The .p8 key contents will be provided in the "Demo Account" notes field below.
+**Issuer ID:**
+```
+[FILL IN — UUID from ASC → Users and Access → Integrations → Keys]
+```
 
-> ⚠️ FILL THIS IN before submitting. Create a sandbox Apple ID, add it to a test ASC team with at least 1 dummy app in "Ready for Submission" state, generate an API key with "App Manager" role, and paste the credentials above. If you skip this, the reviewer cannot meaningfully test the app and may reject for "incomplete information for review."
+**Key ID:**
+```
+[FILL IN — 10-character ID shown next to the generated key]
+```
 
-**Option B — A video walkthrough of every screen:**
-- We've recorded a 90-second demo showing every screen working with real data: `[FILL IN — upload to YouTube unlisted or Vimeo and paste URL here]`
-- This is supplemental to Option A. We recommend Option A for the full hands-on test.
+**.p8 key contents** (paste verbatim, including the BEGIN/END lines):
+```
+-----BEGIN PRIVATE KEY-----
+[FILL IN — open the downloaded AuthKey_XXXXXXXXXX.p8 file in a text editor and paste its full contents here]
+-----END PRIVATE KEY-----
+```
+
+**How to paste these into the app:**
+
+1. Launch Release Pilot fresh (or tap More → DANGER ZONE → Erase all data if a previous reviewer left credentials behind)
+2. Complete the welcome flow → tap "Connect App Store Connect"
+3. The "Why we need this key" screen appears → tap Continue
+4. The "Paste your key" screen appears with three fields → paste the three values above into the matching fields
+5. Tap "Verify" — the app makes a live `GET /v1/apps` call to App Store Connect and should immediately show our test apps
+6. You'll land on the Releases tab with our live ASC data populated
+
+The key has **App Manager** role — it can read every endpoint Release Pilot uses (apps, versions, builds, customer reviews) and can submit a review reply if you want to test that feature. It cannot submit apps for sale, change pricing, or take any destructive action on our account.
+
+**This key will be revoked the day the app is approved.** It exists solely for App Review.
+
+**Optional — video walkthrough as a backup:**
+- A 90-second screen recording of every feature working with real data: `[FILL IN — upload to YouTube unlisted or Vimeo and paste URL here, OR remove this section]`
 
 ### How the App Store Connect API key is handled
 
@@ -60,12 +80,13 @@ Release Pilot is free to install. Two auto-renewable subscriptions are available
 - `release_pilot_pro_yearly` — $39.99/year (7-day free trial for new subscribers)
 
 To test:
-1. Sign in to the device with the sandbox Apple ID from Option A above (or any sandbox tester ID)
-2. Open Release Pilot → complete onboarding → reach the "One last thing" screen
+1. Sign in to the device with **any sandbox tester Apple ID** (Settings → App Store → Sandbox Account). The ASC API key above is independent of the IAP sandbox account.
+2. Open Release Pilot → paste the credentials above → complete onboarding → reach the "One last thing" screen
 3. Tap "Start 7-day free trial"
 4. Apple's StoreKit sheet should appear with the subscription details
 5. Confirm the purchase
 6. The app returns to the Releases tab and you should immediately see Pro features enabled (e.g. you can now add a second connected ASC account)
+7. To test plan switching: More → Change plan → pick the other plan → confirm Apple's cross-grade sheet. The subscription card updates immediately.
 
 ### Account deletion (Guideline 5.1.1(v))
 
@@ -110,7 +131,7 @@ Live Activities are started automatically when an app the user has connected ent
 
 - We do not collect personally identifiable information from our users (no analytics, no telemetry, no third-party SDKs aside from RevenueCat for IAP receipt validation)
 - RevenueCat (used to validate IAP receipts and unlock Pro features) receives an anonymous installation ID generated by the user's device. It receives no Apple ID, no name, no email, and no ASC data.
-- See full privacy policy: `https://releasepilot.app/privacy`
+- See full privacy policy: `https://senthilmkm.github.io/release-pilot/privacy.html`
 
 ### Contact
 

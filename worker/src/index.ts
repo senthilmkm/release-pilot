@@ -3,6 +3,7 @@ import { handleHealth } from './handlers/health';
 import { handleRegister } from './handlers/register';
 import { handleUnregister } from './handlers/unregister';
 import { handleRefresh } from './handlers/refresh';
+import { handleSetPro } from './handlers/set-pro';
 import { notFound } from './handlers/http-utils';
 import { runPollCycle } from './cron/poll-cycle';
 import { listDevicesBatch } from './storage/repo';
@@ -30,6 +31,9 @@ export default {
     }
     if (url.pathname === '/v1/refresh' && request.method === 'POST') {
       return handleRefresh(request, env);
+    }
+    if (url.pathname === '/v1/set-pro' && request.method === 'POST') {
+      return handleSetPro(request, env);
     }
 
     return notFound('unknown route');

@@ -749,6 +749,42 @@ async function main(): Promise<void> {
   const addApp2ndFree = gateAddApp({ isPro: false, appIndex: 1 });
   const addApp99thPro = gateAddApp({ isPro: true,  appIndex: 99 });
 
+  // Free-app helper integration test — simulates a realistic 4-app
+  // portfolio (the Build 3 scenario) and verifies the helpers agree
+  // with the gate. This catches the audit gap that caused the
+  // "all 4 apps work for free" bug in Build 3.
+  const { sortAppsAlphabetically, getFreeAppAscId, isAppLockedForFree, getAppIndex } =
+    await import('../src/lib/subscription/free-app');
+  const portfolio = [
+    { ascId: 'r',   name: 'Recall' },
+    { ascId: 'rp',  name: 'Release Pilot' },
+    { ascId: 'pdf', name: 'PDF Studio' },
+    { ascId: 's',   name: 'Shotday' },
+    { ascId: 'ff',  name: 'Format Flex' },
+  ];
+  const sortedNames = sortAppsAlphabetically(portfolio).map((a) => a.name);
+  const freeApp = getFreeAppAscId(portfolio);
+  const ffLocked = isAppLockedForFree({ apps: portfolio, ascId: 'ff', isPro: false });
+  const rLockedFree = isAppLockedForFree({ apps: portfolio, ascId: 'r',  isPro: false });
+  const rLockedPro  = isAppLockedForFree({ apps: portfolio, ascId: 'r',  isPro: true  });
+  const ffIdx = getAppIndex(portfolio, 'ff');
+  const sIdx  = getAppIndex(portfolio, 's');
+
+  const helperFailures: string[] = [];
+  if (sortedNames[0] !== 'Format Flex') helperFailures.push(`sortAppsAlphabetically[0] expected "Format Flex", got "${sortedNames[0]}"`);
+  if (freeApp !== 'ff') helperFailures.push(`getFreeAppAscId expected "ff", got "${freeApp}"`);
+  if (ffLocked !== false) helperFailures.push('Format Flex (alphabetically first) MUST be unlocked for free users');
+  if (rLockedFree !== true) helperFailures.push('Recall MUST be locked for free users');
+  if (rLockedPro !== false) helperFailures.push('Recall must NOT be locked for Pro users');
+  if (ffIdx !== 0) helperFailures.push(`getAppIndex("ff") expected 0, got ${ffIdx}`);
+  if (sIdx !== 4) helperFailures.push(`getAppIndex("s") expected 4, got ${sIdx}`);
+
+  if (helperFailures.length > 0) {
+    for (const f of helperFailures) fail(`Free-app helper: ${f}`);
+    throw new Error('Free-app helper logic mismatch');
+  }
+  ok('Free-app helpers: 4-app portfolio gated as expected (Format Flex free; rest paywalled)');
+
   const NOW_TS = Date.now();
 
   // Review reply gate is now a 2/month rolling quota (not Pro-only).
