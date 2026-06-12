@@ -1,8 +1,8 @@
 # Terms of Service — Release Pilot
 
-**Effective date: [FILL IN before publishing]**
+**Effective date: June 14, 2026**
 
-**Last updated: [FILL IN before publishing]**
+**Last updated: June 14, 2026**
 
 These terms govern your use of Release Pilot ("the app", "we", "us"). By installing or using Release Pilot you agree to them. If you don't, please don't use the app.
 
@@ -132,11 +132,11 @@ If a change materially reduces your rights and you don't accept it, you may canc
 
 ## 9. Governing law
 
-These terms are governed by the laws of *[FILL IN — your country/state of residence]*, without regard to conflict-of-law provisions.
+These terms are governed by the laws of the State of South Carolina, United States, without regard to conflict-of-law provisions.
 
 For disputes:
 - Small claims may be brought in your local court
-- Other disputes will be resolved by individual arbitration where required by law, otherwise in the courts of *[FILL IN — your jurisdiction]*
+- Other disputes will be resolved by individual arbitration where required by law, otherwise in the state and federal courts located in York County, South Carolina, United States
 - Class actions are waived to the extent permitted by law
 
 ---
@@ -146,7 +146,7 @@ For disputes:
 | | |
 |---|---|
 | Email | senthil930@gmail.com |
-| Postal address | *[FILL IN]* |
+| Postal address | 728 Balboa Ct, Fort Mill, SC 29715, United States |
 
 ---
 

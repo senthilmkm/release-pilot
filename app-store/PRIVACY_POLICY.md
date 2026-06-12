@@ -1,8 +1,8 @@
 # Privacy Policy — Release Pilot
 
-**Effective date: [FILL IN before publishing — must be on or before the date you submit]**
+**Effective date: June 14, 2026**
 
-**Last updated: [FILL IN before publishing]**
+**Last updated: June 14, 2026**
 
 This privacy policy describes how Release Pilot ("the app", "we", "us") handles your information. We've intentionally written it in plain English. If anything is unclear, email **senthil930@gmail.com** and we'll revise it.
 
@@ -146,13 +146,13 @@ Material changes will not be applied retroactively to data already collected.
 | | |
 |---|---|
 | Email | senthil930@gmail.com |
-| Postal address | *[FILL IN — required for EU users under GDPR Art. 13. Use your business or personal mailing address.]* |
-| Developer of record | Senthil [Full last name] |
+| Postal address | 728 Balboa Ct, Fort Mill, SC 29715, United States |
+| Developer of record | Senthil Kumar Kannan |
 
 ---
 
 ## 8. Jurisdiction
 
-This policy is governed by the laws of *[FILL IN — your country/state of residence]*.
+This policy is governed by the laws of the State of South Carolina, United States, without regard to conflict-of-law principles.
 
 For App Store transactions, Apple's standard EULA also applies: [https://www.apple.com/legal/internet-services/itunes/dev/stdeula/](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/)
