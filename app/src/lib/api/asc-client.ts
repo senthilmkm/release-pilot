@@ -1,9 +1,12 @@
 import { ASCError, toASCError } from './asc-errors';
 import type {
   ASCApp,
+  ASCAppAvailability,
   ASCAppCategory,
   ASCAppInfo,
   ASCAppInfoLocalization,
+  ASCAppPrice,
+  ASCAppPriceSchedule,
   ASCAppScreenshotSet,
   ASCAppStoreVersion,
   ASCAppStoreVersionLocalization,
@@ -13,6 +16,8 @@ import type {
   ASCResource,
   ASCSubscription,
   ASCSubscriptionGroup,
+  GetAppAvailabilityResponse,
+  GetAppPriceScheduleResponse,
   ListAppInfosResponse,
   ListAppsResponse,
   ListAppStoreVersionsResponse,
@@ -286,6 +291,104 @@ export class ASCClient {
     const data = await this.fetch<ListSubscriptionGroupsResponse>(path);
     const subs = collectIncluded<ASCSubscription>(data.included ?? [], 'subscriptions');
     return { groups: data.data, subs };
+  }
+
+  /**
+   * GET /v1/apps/{id}/appPriceSchedule
+   *
+   * Returns the app's pricing schedule + every `manualPrice` entry. A
+   * free app still has a schedule — its single manualPrice points to
+   * the "USD 0 Free" price point. The Checklist rule fails when:
+   *   - 404 is returned (no schedule has ever been created)
+   *   - schedule exists but has 0 manualPrices
+   *
+   * 404 vs other errors: Apple returns 404 specifically when no
+   * schedule has been initialized for the app (very common for new
+   * apps — exactly the case our rule needs to catch). We translate
+   * that to `{ schedule: null, prices: [] }` so the rule can fail
+   * cleanly instead of erroring out the entire checklist.
+   *
+   * Other errors (auth, network, server) propagate so `useChecklistQuery`
+   * can downgrade the rule to `unknown` via the standard Promise.allSettled
+   * gracefull-degradation path.
+   *
+   * Permissions: standard App Manager / Admin keys can read this. Lower
+   * roles 403 → rule degrades to `unknown`.
+   */
+  async getAppPriceSchedule(appId: string): Promise<{
+    schedule: ASCAppPriceSchedule | null;
+    prices: ASCAppPrice[];
+  }> {
+    const path =
+      `/v1/apps/${encodeURIComponent(appId)}/appPriceSchedule` +
+      `?include=manualPrices` +
+      `&fields[appPriceSchedules]=manualPrices,baseTerritory` +
+      `&fields[appPrices]=startDate,endDate,manual`;
+    try {
+      const data = await this.fetch<GetAppPriceScheduleResponse>(path);
+      const prices = (data.included ?? []).filter(
+        (r): r is ASCAppPrice => r.type === 'appPrices',
+      );
+      return { schedule: data.data, prices };
+    } catch (e) {
+      if (e instanceof ASCError && e.kind === 'not_found') {
+        // Apple returns 404 when no pricing has been configured for this
+        // app — this is the exact state our rule needs to flag. Translate
+        // to a successful empty result so the rule fires `fail`, not
+        // `unknown`.
+        return { schedule: null, prices: [] };
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * GET /v1/apps/{id}/appAvailabilityV2
+   *
+   * Returns the app's availability resource + a per-territory list as
+   * `territoryAvailabilities` (each carrying `attributes.available:
+   * boolean`). The rule counts entries where `available === true` —
+   * empty or all-false → Apple blocks the submission.
+   *
+   * Pagination note: Apple caps `limit[territoryAvailabilities]` at
+   * **50** (anything higher → 400 PARAMETER_ERROR.INVALID, learned the
+   * hard way). 50 is enough to prove "at least 1 selected" for the
+   * rule's pass/fail; if the count equals the cap, `truncated: true`
+   * tells the rule to render "50+ territories" rather than the literal
+   * 50, since the user may actually have all 175 enabled.
+   *
+   * Same 404 handling as `getAppPriceSchedule`: 404 means no
+   * availability has ever been configured for this app → rule fails
+   * (not errors out).
+   */
+  async getAppAvailability(appId: string): Promise<{
+    availability: ASCAppAvailability | null;
+    availableCount: number;
+    truncated: boolean;
+  }> {
+    const LIMIT = 50;
+    const path =
+      `/v1/apps/${encodeURIComponent(appId)}/appAvailabilityV2` +
+      `?include=territoryAvailabilities` +
+      `&limit[territoryAvailabilities]=${LIMIT}` +
+      `&fields[appAvailabilities]=availableInNewTerritories,territoryAvailabilities` +
+      `&fields[territoryAvailabilities]=available`;
+    try {
+      const data = await this.fetch<GetAppAvailabilityResponse>(path);
+      const availableCount = (data.included ?? [])
+        .filter((r) => r.type === 'territoryAvailabilities')
+        .filter((r) => {
+          const attrs = (r as { attributes?: { available?: boolean } }).attributes;
+          return attrs?.available === true;
+        })
+        .length;
+      return { availability: data.data, availableCount, truncated: availableCount >= LIMIT };
+    } catch (e) {
+      if (e instanceof ASCError && e.kind === 'not_found') {
+        return { availability: null, availableCount: 0, truncated: false };
+      }
+      throw e;
+    }
   }
 
   // ---------------------------- internals ----------------------------------

@@ -11,13 +11,37 @@ import type {
 } from '@/lib/api/asc-types';
 
 /**
+ * Compact projection of `GET /v1/apps/{id}/appPriceSchedule` — just the
+ * one signal the rule needs: how many `manualPrices` entries the app
+ * has. 0 = blocker. Stored as a scalar in `ChecklistContext` rather
+ * than the raw schedule so the rule stays pure-data-in.
+ */
+export type ChecklistPriceSchedule = {
+  /** Count of `manualPrices` on the schedule. 0 = no price tier set → fail. */
+  priceCount: number;
+};
+
+/**
+ * Compact projection of `GET /v1/apps/{id}/appAvailabilityV2`. Apple
+ * blocks submissions when no territories are selected; we only need
+ * the count.
+ */
+export type ChecklistAvailability = {
+  /** Number of territories the app is offered in. 0 = blocker. */
+  territoryCount: number;
+  /** True when we hit Apple's pagination cap (50) — the actual count
+   *  may be higher (all 175 territories is the typical full setup). */
+  truncated: boolean;
+};
+
+/**
  * Pre-submit checklist rules.
  *
  * Each rule is a pure function: takes a `ChecklistContext`, returns a
  * `RuleResult`. No I/O, no side effects, no React. Trivially unit-tested.
  *
  * Design goals:
- *  - Catch the 10 most common mechanical-rejection causes verified across
+ *  - Catch the most common mechanical-rejection causes verified across
  *    indie iOS developer forums (r/iOSProgramming, IndieHackers, etc.)
  *  - When the API doesn't expose enough information for a confident
  *    pass/fail, return `unknown` rather than guessing — `unknown` shows
@@ -85,6 +109,17 @@ export type ChecklistContext = {
    * read this endpoint (403 / network / etc) — rule degrades to `unknown`.
    */
   subscriptionProducts: ASCSubscription[] | null;
+  /**
+   * Pricing schedule projection. `null` = couldn't fetch (rule → `unknown`).
+   * `{ priceCount: 0 }` = no price set in ASC (rule → `fail`).
+   */
+  priceSchedule: ChecklistPriceSchedule | null;
+  /**
+   * Availability (territory selection) projection. `null` = couldn't
+   * fetch (rule → `unknown`). `{ territoryCount: 0 }` = no countries
+   * selected (rule → `fail`).
+   */
+  availability: ChecklistAvailability | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -154,7 +189,7 @@ function isLikelyUrl(s: string | undefined | null): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// The 15 rules (10 per-version + 4 app-level + 1 IAP)
+// The 17 rules (10 per-version + 4 app-level + 1 IAP + 2 pricing/availability)
 // ---------------------------------------------------------------------------
 
 const ruleDraftExists = (ctx: ChecklistContext): RuleResult => {
@@ -723,6 +758,87 @@ const ruleSubscriptionProducts = (ctx: ChecklistContext): RuleResult => {
 };
 
 // ---------------------------------------------------------------------------
+// Pricing / Availability rules (2) — these check the "Pricing and
+// Availability" sidebar in ASC. Apple blocks "Add for Review" if either
+// is misconfigured, with a generic "you must choose a price tier in
+// Pricing" / "you must select a territory" error. We catch both before
+// the user discovers them at submission time.
+// ---------------------------------------------------------------------------
+
+const rulePriceTier = (ctx: ChecklistContext): RuleResult => {
+  if (!ctx.priceSchedule) {
+    // Couldn't fetch (403/network/timeout) — degrade to unknown so the
+    // user can verify manually rather than seeing a false fail.
+    return {
+      id: 'price-tier',
+      title: 'Price tier is set in Pricing and Availability',
+      severity: 'unknown',
+      message: "We couldn't read your Pricing setting from the API.",
+      remediation:
+        "App Store Connect → Pricing and Availability → confirm a price tier is set (USD 0 for free apps).",
+      ascDeepLink: ascAppLink(ctx.appId, 'pricing'),
+    };
+  }
+  if (ctx.priceSchedule.priceCount === 0) {
+    return {
+      id: 'price-tier',
+      title: 'Price tier is set in Pricing and Availability',
+      severity: 'fail',
+      message:
+        "No price tier set — Apple blocks \"Add for Review\" until one is configured.",
+      remediation:
+        "App Store Connect → Pricing and Availability → Add Pricing → pick USD 0 (Free) for a free app, or your chosen tier.",
+      ascDeepLink: ascAppLink(ctx.appId, 'pricing'),
+    };
+  }
+  return {
+    id: 'price-tier',
+    title: 'Price tier is set in Pricing and Availability',
+    severity: 'pass',
+    message:
+      ctx.priceSchedule.priceCount === 1
+        ? 'Pricing schedule has 1 active tier.'
+        : `Pricing schedule has ${ctx.priceSchedule.priceCount} active tiers.`,
+  };
+};
+
+const ruleAvailability = (ctx: ChecklistContext): RuleResult => {
+  if (!ctx.availability) {
+    return {
+      id: 'availability',
+      title: 'At least one territory is selected in Availability',
+      severity: 'unknown',
+      message: "We couldn't read your Availability setting from the API.",
+      remediation:
+        'App Store Connect → Pricing and Availability → Availability → confirm at least one country is selected.',
+      ascDeepLink: ascAppLink(ctx.appId, 'pricing'),
+    };
+  }
+  if (ctx.availability.territoryCount === 0) {
+    return {
+      id: 'availability',
+      title: 'At least one territory is selected in Availability',
+      severity: 'fail',
+      message: "No countries selected — Apple won't accept the submission.",
+      remediation:
+        'App Store Connect → Pricing and Availability → Availability → pick at least one country (typically all 175).',
+      ascDeepLink: ascAppLink(ctx.appId, 'pricing'),
+    };
+  }
+  const count = ctx.availability.territoryCount;
+  const suffix = ctx.availability.truncated ? '+' : '';
+  return {
+    id: 'availability',
+    title: 'At least one territory is selected in Availability',
+    severity: 'pass',
+    message:
+      count === 1 && !ctx.availability.truncated
+        ? 'Available in 1 territory.'
+        : `Available in ${count}${suffix} territories.`,
+  };
+};
+
+// ---------------------------------------------------------------------------
 // Definitions list — drives ordering in the UI and the runChecklist loop
 // ---------------------------------------------------------------------------
 
@@ -748,12 +864,16 @@ const RULE_DEFINITIONS: readonly ((ctx: ChecklistContext) => RuleResult)[] = [
 
   // IAP rules (only apps with subscriptions)
   ruleSubscriptionProducts,
+
+  // Pricing & Availability (block "Add for Review" if missing)
+  rulePriceTier,
+  ruleAvailability,
 ];
 
 export const RULE_COUNT = RULE_DEFINITIONS.length;
 
 // ---------------------------------------------------------------------------
-// Aggregate summary (for the screen header — "13 of 15 passing")
+// Aggregate summary (for the screen header — "15 of 17 passing")
 // ---------------------------------------------------------------------------
 
 export type ChecklistSummary = {

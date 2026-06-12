@@ -57,6 +57,8 @@ import type {
   ListVersionLocalizationsResponse,
   ListAppInfosResponse,
   ListSubscriptionGroupsResponse,
+  GetAppAvailabilityResponse,
+  GetAppPriceScheduleResponse,
   ASCApp,
   ASCAppCategory,
   ASCAppInfo,
@@ -358,6 +360,70 @@ async function listSubscriptionGroupsWithSubs(
   return { subs };
 }
 
+/**
+ * Fetch the app's price schedule. Mirrors `ASCClient.getAppPriceSchedule`:
+ * 404 is translated to `{ priceCount: 0 }` (Apple's signal that no
+ * schedule has been created), all other errors propagate.
+ */
+async function getAppPriceSchedule(
+  appId: string,
+  jwt: string,
+): Promise<{ priceCount: number }> {
+  try {
+    const data = await ascGet<GetAppPriceScheduleResponse>(
+      `/v1/apps/${encodeURIComponent(appId)}/appPriceSchedule` +
+        `?include=manualPrices` +
+        `&fields[appPriceSchedules]=manualPrices,baseTerritory` +
+        `&fields[appPrices]=startDate,endDate,manual`,
+      jwt,
+    );
+    const priceCount = (data.included ?? []).filter(
+      (r) => r.type === 'appPrices',
+    ).length;
+    return { priceCount };
+  } catch (e) {
+    if (e instanceof ASCError && e.kind === 'not_found') {
+      return { priceCount: 0 };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Fetch the app's availability — counts `territoryAvailabilities` where
+ * `attributes.available === true`. Mirrors `ASCClient.getAppAvailability`:
+ * 404 → `{ territoryCount: 0 }`. Apple caps `limit` at 50.
+ */
+async function getAppAvailability(
+  appId: string,
+  jwt: string,
+): Promise<{ territoryCount: number; truncated: boolean }> {
+  const LIMIT = 50;
+  try {
+    const data = await ascGet<GetAppAvailabilityResponse>(
+      `/v1/apps/${encodeURIComponent(appId)}/appAvailabilityV2` +
+        `?include=territoryAvailabilities` +
+        `&limit[territoryAvailabilities]=${LIMIT}` +
+        `&fields[appAvailabilities]=availableInNewTerritories,territoryAvailabilities` +
+        `&fields[territoryAvailabilities]=available`,
+      jwt,
+    );
+    const territoryCount = (data.included ?? [])
+      .filter((r) => r.type === 'territoryAvailabilities')
+      .filter((r) => {
+        const attrs = (r as { attributes?: { available?: boolean } }).attributes;
+        return attrs?.available === true;
+      })
+      .length;
+    return { territoryCount, truncated: territoryCount >= LIMIT };
+  } catch (e) {
+    if (e instanceof ASCError && e.kind === 'not_found') {
+      return { territoryCount: 0, truncated: false };
+    }
+    throw e;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -598,10 +664,10 @@ async function main(): Promise<void> {
     }),
   );
 
-  // Fetch app-level extras (app entity + appInfo + subscription groups) in
-  // parallel — these feed the 5 newer rules. They use Promise.allSettled
-  // so a 403 on any one of them just degrades the affected rule to
-  // `unknown` without breaking the whole run.
+  // Fetch app-level extras (app entity + appInfo + subscription groups +
+  // pricing + availability) in parallel — these feed the 7 newer rules.
+  // They use Promise.allSettled so a 403 on any one of them just degrades
+  // the affected rule to `unknown` without breaking the whole run.
   const targetAppId = target ? target.app.id : appsResponse.data[0]?.id ?? '';
   const extras = await Promise.allSettled(
     targetAppId
@@ -609,8 +675,14 @@ async function main(): Promise<void> {
           getApp(targetAppId, jwt),
           listAppInfos(targetAppId, jwt),
           listSubscriptionGroupsWithSubs(targetAppId, jwt),
+          getAppPriceSchedule(targetAppId, jwt),
+          getAppAvailability(targetAppId, jwt),
         ]
-      : [Promise.reject('no app'), Promise.reject('no app'), Promise.reject('no app')],
+      : [
+          Promise.reject('no app'), Promise.reject('no app'),
+          Promise.reject('no app'), Promise.reject('no app'),
+          Promise.reject('no app'),
+        ],
   );
   const fetchedApp = extras[0]?.status === 'fulfilled' ? extras[0].value as ASCApp : null;
   const appInfosBundle =
@@ -639,10 +711,21 @@ async function main(): Promise<void> {
     extras[2]?.status === 'fulfilled'
       ? Array.from((extras[2].value as { subs: Map<string, ASCSubscription> }).subs.values())
       : null;
+  const fetchedPriceSchedule =
+    extras[3]?.status === 'fulfilled'
+      ? (extras[3].value as Awaited<ReturnType<typeof getAppPriceSchedule>>)
+      : null;
+  const fetchedAvailability = (() => {
+    if (extras[4]?.status !== 'fulfilled') return null;
+    const v = extras[4].value as Awaited<ReturnType<typeof getAppAvailability>>;
+    return { territoryCount: v.territoryCount, truncated: v.truncated };
+  })();
 
   if (extras[0]?.status === 'rejected') warn('getApp failed (rule will degrade to unknown)');
   if (extras[1]?.status === 'rejected') warn('listAppInfos failed (3 rules will degrade to unknown)');
   if (extras[2]?.status === 'rejected') warn('listSubscriptionGroups failed (sub rule will degrade to unknown)');
+  if (extras[3]?.status === 'rejected') warn('getAppPriceSchedule failed (price-tier rule will degrade to unknown)');
+  if (extras[4]?.status === 'rejected') warn('getAppAvailability failed (availability rule will degrade to unknown)');
 
   if (!target) {
     info('No app has an editable draft (PREPARE_FOR_SUBMISSION or DEVELOPER_REJECTED).');
@@ -657,6 +740,8 @@ async function main(): Promise<void> {
       primaryCategory: fetchedPrimaryCategory,
       appInfoLocalization: fetchedAppInfoLoc,
       subscriptionProducts: fetchedSubProducts,
+      priceSchedule: fetchedPriceSchedule,
+      availability: fetchedAvailability,
     };
     const results = runChecklist(ctx);
     const summary = summarizeChecklist(results);
@@ -694,6 +779,8 @@ async function main(): Promise<void> {
       primaryCategory: fetchedPrimaryCategory,
       appInfoLocalization: fetchedAppInfoLoc,
       subscriptionProducts: fetchedSubProducts,
+      priceSchedule: fetchedPriceSchedule,
+      availability: fetchedAvailability,
     };
 
     const results = runChecklist(ctx);
@@ -1166,7 +1253,8 @@ async function main(): Promise<void> {
   console.log(`${DIM}  Phase 3: customerReviews fetch (with permission-error tolerance),${RESET}`);
   console.log(`${DIM}           review projection, reply-state derivation, counts/buckets.${RESET}`);
   console.log(`${DIM}  Phase 4: localizations + screenshot-sets + appInfo + subscriptionGroups${RESET}`);
-  console.log(`${DIM}           fetch, 15-rule engine (per-version + app-level + IAP),${RESET}`);
+  console.log(`${DIM}           + appPriceSchedule + appAvailabilityV2 fetch,${RESET}`);
+  console.log(`${DIM}           17-rule engine (per-version + app-level + IAP + pricing),${RESET}`);
   console.log(`${DIM}           severity priority, summary projection.${RESET}`);
   console.log(`${DIM}  Phase 5: SharedAppState projection + Live Activity sync deriver${RESET}`);
   console.log(`${DIM}           (start/update/end transitions verified against live ASC data).${RESET}`);

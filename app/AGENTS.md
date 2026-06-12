@@ -283,13 +283,13 @@ key to have "Customer Support" or "Admin" role. Keys with only the
 | Localization + Screenshot DTOs       | `src/lib/api/asc-types.ts` (ASCAppStoreVersionLocalization, ASCAppScreenshotSet) |
 | listVersionLocalizations + listScreenshotSets | `src/lib/api/asc-client.ts`                       |
 | Checklist orchestrator query         | `src/lib/api/asc-queries.ts` (`useChecklistQuery`)         |
-| **The 15 pure rules + summary**      | `src/lib/domain/checklist-rules.ts` + `.test.ts` (73 tests)|
+| **The 17 pure rules + summary**      | `src/lib/domain/checklist-rules.ts` + `.test.ts`           |
 | Checklist screen                     | `src/app/(tabs)/checklist.tsx`                             |
 | App picker (chips)                   | `src/features/checklist/app-picker.tsx`                    |
 | Per-rule expandable row              | `src/features/checklist/rule-row.tsx`                      |
 | Hero summary card                    | `src/features/checklist/summary-card.tsx`                  |
 
-**The 15 rules** (in display order — 10 per-version + 4 app-level + 1 IAP):
+**The 17 rules** (in display order — 10 per-version + 4 app-level + 1 IAP + 2 pricing):
 
 Per-version (run every release, read from `ASCAppStoreVersion` + locs):
 1. `draft-exists`      — A version draft exists in ASC
@@ -311,6 +311,16 @@ App-level (mostly matter for first submission, read from `ASCApp` + `ASCAppInfo`
 
 IAP (only apps with subscriptions, read from `ASCSubscriptionGroup`):
 15. `subscription-products` — Every sub product is past `MISSING_METADATA`
+
+Pricing & Availability (read from `appPriceSchedule` + `appAvailabilityV2`):
+16. `price-tier`           — At least one `manualPrice` entry on the schedule (USD 0 counts)
+17. `availability`         — At least one territory selected
+
+Added in v1.0.1 after the user hit "Unable to Add for Review: You must
+choose a price tier in Pricing" — exactly the class of mechanical
+rejection this engine exists to catch. Apple's 404 for never-configured
+schedule/availability is translated to "no data" by the client so the
+rules fire `fail` (not `unknown` or error).
 
 **Severity ladder.** `fail` (Apple will reject) → `warn` (commonly rejected)
 → `unknown` (can't verify from API alone) → `na` (rule doesn't apply) →
@@ -737,7 +747,7 @@ Verify these by walking through the app once on device:
 - [ ] Pull-to-refresh fires a light haptic
 - [ ] Reviews tab shows aggregated inbox; filters work; reply submits (and
       queues if you toggle airplane mode mid-send)
-- [ ] Checklist tab runs all 15 rules; failures surface ASC deep links
+- [ ] Checklist tab runs all 17 rules; failures surface ASC deep links
 - [ ] More tab: tap "Upgrade to Pro" → paywall opens with live prices
       (NOT $X.XX placeholders); restore button works
 - [ ] Diagnostics screen renders; copy-to-clipboard puts data into Notes

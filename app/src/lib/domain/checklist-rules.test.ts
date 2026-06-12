@@ -159,6 +159,14 @@ function makeCtx(over: Partial<ChecklistContext> = {}): ChecklistContext {
             makeSub('release_pilot_pro_yearly', 'READY_TO_SUBMIT'),
           ]
         : over.subscriptionProducts,
+    // Pricing + availability default to "configured": 1 price tier set,
+    // available in 175 territories (the typical full-rollout setup).
+    // Tests override to exercise missing-config and API-failure paths.
+    priceSchedule: over.priceSchedule === undefined ? { priceCount: 1 } : over.priceSchedule,
+    availability:
+      over.availability === undefined
+        ? { territoryCount: 175, truncated: false }
+        : over.availability,
   };
 }
 
@@ -170,16 +178,17 @@ function ruleById(results: ReturnType<typeof runChecklist>, id: string) {
 // RULE_COUNT / runChecklist baseline
 // ---------------------------------------------------------------------------
 
-ok('exposes 15 rules',           RULE_COUNT === 15);
-ok('runChecklist returns 15',    runChecklist(makeCtx()).length === 15);
+ok('exposes 17 rules',           RULE_COUNT === 17);
+ok('runChecklist returns 17',    runChecklist(makeCtx()).length === 17);
 
-// Happy path: a clean draft + complete app metadata + all-ready subs should
-// produce 13 pass + 2 unknown (encryption + app-privacy-details — both are
-// dashboard-only and always unknown). No warns, no fails.
+// Happy path: a clean draft + complete app metadata + all-ready subs +
+// configured price + selected territories should produce 15 pass + 2
+// unknown (encryption + app-privacy-details — both are dashboard-only
+// and always unknown). No warns, no fails.
 {
   const results = runChecklist(makeCtx());
   const summary = summarizeChecklist(results);
-  ok('happy path: 13 pass + 2 unknown', summary.pass === 13 && summary.unknown === 2);
+  ok('happy path: 15 pass + 2 unknown', summary.pass === 15 && summary.unknown === 2);
   ok('happy path: overallSeverity = unknown (no warn/fail)', summary.overallSeverity === 'unknown');
 }
 
@@ -492,6 +501,95 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 }
 
 // ---------------------------------------------------------------------------
+// rulePriceTier (Pricing & Availability sidebar — added v1.0.1 after we
+// missed the "Unable to Add for Review: You must choose a price tier in
+// Pricing" rejection)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ priceSchedule: null })), 'price-tier');
+  ok('price-tier: API failure → unknown', r?.severity === 'unknown');
+  ok('price-tier: unknown carries pricing deep link',
+    typeof r?.ascDeepLink === 'string' && r.ascDeepLink.includes('pricing'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ priceSchedule: { priceCount: 0 } })), 'price-tier');
+  ok('price-tier: no price set → fail', r?.severity === 'fail');
+  ok('price-tier: fail message mentions Add for Review',
+    typeof r?.message === 'string' && r.message.toLowerCase().includes('add for review'));
+  ok('price-tier: fail remediation names USD 0 / Free option',
+    typeof r?.remediation === 'string' && r.remediation.includes('USD 0'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ priceSchedule: { priceCount: 1 } })), 'price-tier');
+  ok('price-tier: 1 tier set → pass', r?.severity === 'pass');
+  ok('price-tier: pass message uses singular',
+    typeof r?.message === 'string' && r.message.includes('1 active tier'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ priceSchedule: { priceCount: 3 } })), 'price-tier');
+  ok('price-tier: multiple tiers (scheduled price changes) → pass',
+    r?.severity === 'pass');
+  ok('price-tier: pass message uses plural with count',
+    typeof r?.message === 'string' && r.message.includes('3 active tiers'));
+}
+
+// ---------------------------------------------------------------------------
+// ruleAvailability (Pricing & Availability sidebar)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ availability: null })), 'availability');
+  ok('availability: API failure → unknown', r?.severity === 'unknown');
+  ok('availability: unknown carries pricing deep link',
+    typeof r?.ascDeepLink === 'string' && r.ascDeepLink.includes('pricing'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ availability: { territoryCount: 0, truncated: false } })), 'availability');
+  ok('availability: zero countries → fail', r?.severity === 'fail');
+  ok('availability: fail message mentions countries',
+    typeof r?.message === 'string' && r.message.toLowerCase().includes('countries'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ availability: { territoryCount: 1, truncated: false } })), 'availability');
+  ok('availability: 1 country → pass (singular copy)',
+    r?.severity === 'pass' && typeof r?.message === 'string' && r.message.includes('1 territory'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ availability: { territoryCount: 175, truncated: false } })), 'availability');
+  ok('availability: all 175 countries → pass',
+    r?.severity === 'pass' && typeof r?.message === 'string' && r.message.includes('175'));
+}
+{
+  // Apple caps pagination at 50 territoryAvailabilities per request, so
+  // the client returns `{ count: 50, truncated: true }` for any app with
+  // 50+ territories. The rule should render "50+" rather than "50",
+  // since the user may actually have all 175 enabled.
+  const r = ruleById(runChecklist(makeCtx({ availability: { territoryCount: 50, truncated: true } })), 'availability');
+  ok('availability: pagination truncation → pass with "50+" copy',
+    r?.severity === 'pass' && typeof r?.message === 'string' && r.message.includes('50+'));
+}
+
+// Pricing/availability rules survive the "no draft" state (they're app-
+// level, not per-version). A live app with no editable draft should
+// still surface them so users notice if a price tier gets cleared
+// post-launch.
+{
+  const ctx = makeCtx({
+    version: null,
+    build: null,
+    localizations: [],
+    isFirstVersion: false,
+    priceSchedule: { priceCount: 0 },
+    availability: { territoryCount: 0, truncated: false },
+  });
+  const results = runChecklist(ctx);
+  ok('pricing-rules: survive no-draft state',
+    ruleById(results, 'price-tier')?.severity === 'fail' &&
+    ruleById(results, 'availability')?.severity === 'fail');
+}
+
+// ---------------------------------------------------------------------------
 // ruleSubscriptionProducts (IAP)
 // ---------------------------------------------------------------------------
 
@@ -717,7 +815,7 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 }
 
 {
-  // Total app-level fetch failure (all 3 endpoints 403). Every app-level
+  // Total app-level fetch failure (all 5 endpoints 403). Every app-level
   // rule that has data dependencies degrades to unknown.
   const ctx = makeCtx({
     version: null,
@@ -729,14 +827,35 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
     primaryCategory: null,
     appInfoLocalization: null,
     subscriptionProducts: null,
+    priceSchedule: null,
+    availability: null,
   });
   const results = runChecklist(ctx);
   const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
-  ok('full API-fail: surfaces 4 unknowns (content + category + privacy + subs)',
-    nonNaNonPass.length === 4 && nonNaNonPass.every((r) => r.severity === 'unknown'));
-  ok('full API-fail: summary.unknown === 4',
-    summary.unknown === 4);
+  ok('full API-fail: surfaces 6 unknowns (content + category + privacy + subs + price + availability)',
+    nonNaNonPass.length === 6 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('full API-fail: summary.unknown === 6',
+    summary.unknown === 6);
+}
+
+// ---------------------------------------------------------------------------
+// Regression: the exact scenario the user hit on v1.0 submission
+// ("Unable to Add for Review: You must choose a price tier in Pricing")
+// — a fully-prepared draft + perfect metadata, but pricing not configured.
+// ---------------------------------------------------------------------------
+
+{
+  const ctx = makeCtx({
+    priceSchedule: { priceCount: 0 },
+    // Availability defaults to configured — only pricing is missing
+  });
+  const results = runChecklist(ctx);
+  const summary = summarizeChecklist(results, ctx);
+  ok('regression: missing price tier alone → overall fail',
+    summary.overallSeverity === 'fail' && summary.fail === 1);
+  ok('regression: missing price tier surfaces price-tier rule',
+    ruleById(results, 'price-tier')?.severity === 'fail');
 }
 
 // ---------------------------------------------------------------------------

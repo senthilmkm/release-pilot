@@ -103,7 +103,7 @@ export function ReviewRowSkeleton() {
   );
 }
 
-/** Generic body for the Checklist tab — 15 rule rows. */
+/** Generic body for the Checklist tab — 17 rule rows. */
 export function ChecklistRowSkeleton() {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];

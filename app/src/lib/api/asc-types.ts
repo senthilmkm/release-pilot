@@ -273,3 +273,93 @@ export type ASCSubscription = {
 };
 
 export type ListSubscriptionGroupsResponse = ASCApiResponse<ASCSubscriptionGroup[]>;
+
+// ----------------------------- /v1/apps/{id}/appPriceSchedule -------------
+//
+// Apple's pricing-v3 model. Every app — free OR paid — needs a price
+// schedule with at least one `manualPrice` entry. Apple blocks "Add for
+// Review" if no schedule / no prices exist (the exact error users hit
+// when they forget Pricing and Availability for a new app).
+//
+// For a free app, the manualPrice still exists but points to the USD 0
+// price tier.
+
+export type ASCAppPriceSchedule = {
+  type: 'appPriceSchedules';
+  id: string;
+  relationships?: {
+    manualPrices?: { data?: { type: 'appPrices'; id: string }[] };
+    baseTerritory?: { data?: { type: 'territories'; id: string } | null };
+    automaticPrices?: { data?: { type: 'appPrices'; id: string }[] };
+  };
+};
+
+export type ASCAppPrice = {
+  type: 'appPrices';
+  id: string;
+  attributes?: {
+    startDate?: string | null;
+    endDate?: string | null;
+    manual?: boolean;
+  };
+  relationships?: {
+    appPricePoint?: { data?: { type: 'appPricePoints'; id: string } | null };
+    territory?: { data?: { type: 'territories'; id: string } | null };
+  };
+};
+
+export type GetAppPriceScheduleResponse = ASCApiResponse<ASCAppPriceSchedule>;
+
+// ----------------------------- /v1/apps/{id}/appAvailabilityV2 ------------
+//
+// The modern (v2) availability endpoint. Returns the app's availability
+// resource + a list of `territoryAvailabilities` (one per territory the
+// app could potentially be sold in). Each territoryAvailability has
+// `attributes.available: boolean` — true means the app IS available in
+// that territory. Empty list (or all-false) = Apple blocks the submission
+// with "you must select at least one territory in Pricing and Availability".
+//
+// Why `territoryAvailabilities` (not `availableTerritories`):
+// The legacy v1 `availableTerritories` relationship was deprecated when
+// Apple introduced pre-order + scheduled-release territory metadata.
+// The v2 shape wraps the territory ID with availability + release date
+// + pre-order status. Using the wrong name 400s.
+
+export type ASCAppAvailability = {
+  type: 'appAvailabilities';
+  id: string;
+  attributes?: {
+    availableInNewTerritories?: boolean;
+  };
+  relationships?: {
+    territoryAvailabilities?: {
+      data?: { type: 'territoryAvailabilities'; id: string }[];
+    };
+  };
+};
+
+/** Per-territory availability wrapper. `attributes.available` is the
+ *  yes/no signal the checklist rule counts. */
+export type ASCTerritoryAvailability = {
+  type: 'territoryAvailabilities';
+  id: string;
+  attributes?: {
+    available?: boolean;
+    releaseDate?: string | null;
+    preOrderEnabled?: boolean;
+  };
+  relationships?: {
+    territory?: { data?: { type: 'territories'; id: string } | null };
+  };
+};
+
+/** ISO 3166-1 alpha-3 country code (e.g. "USA", "GBR", "JPN"). */
+export type ASCTerritory = {
+  type: 'territories';
+  id: string;
+  attributes?: {
+    currency?: string;
+  };
+};
+
+export type GetAppAvailabilityResponse = ASCApiResponse<ASCAppAvailability>;

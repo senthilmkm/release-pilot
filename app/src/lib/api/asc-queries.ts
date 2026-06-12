@@ -446,13 +446,16 @@ export function useSubmitReplyMutation() {
  *  - the App entity (for `contentRightsDeclaration`)
  *  - App Infos + categories + AppInfoLocalizations (category + privacy URL)
  *  - subscription groups + subscriptions (IAP readiness)
+ *  - app price schedule (price tier set)
+ *  - app availability v2 (at least one territory selected)
  *
- * App-level + IAP fetches use `Promise.allSettled` so a single endpoint
- * failure (typically 403 from a low-permission key) only downgrades the
- * affected rule to `unknown` — it never blanks the whole checklist.
+ * App-level + IAP + pricing fetches use `Promise.allSettled` so a single
+ * endpoint failure (typically 403 from a low-permission key) only
+ * downgrades the affected rule to `unknown` — it never blanks the whole
+ * checklist.
  *
  * Cache strategy: TanStack Query in-memory only. Checklist data is
- * cheap (≤8 round-trips) and users only run it when they're about to
+ * cheap (≤10 round-trips) and users only run it when they're about to
  * submit — staleness is fine, freshness on tap is what matters.
  */
 export function useChecklistQuery(args: {
@@ -466,18 +469,23 @@ export function useChecklistQuery(args: {
       const client = makeClient(args.issuerId, args.keyId);
 
       // ----- Stage 1: parallel kick-offs we can fan out immediately -----
-      // versions, app entity, app infos, subscription groups all keyed
-      // by appId. Run together to keep the total wall-clock low.
+      // versions, app entity, app infos, subscription groups, price
+      // schedule, availability — all keyed by appId. Run together to
+      // keep the total wall-clock low.
       const [
         versionsResult,
         appResult,
         appInfosResult,
         subscriptionsResult,
+        priceScheduleResult,
+        availabilityResult,
       ] = await Promise.allSettled([
         client.listAppStoreVersions(args.appId),
         client.getApp(args.appId),
         client.listAppInfos(args.appId),
         client.listSubscriptionGroupsWithSubs(args.appId),
+        client.getAppPriceSchedule(args.appId),
+        client.getAppAvailability(args.appId),
       ]);
 
       // versions is the only fetch that's truly required — if it failed,
@@ -540,6 +548,25 @@ export function useChecklistQuery(args: {
           ? Array.from(subscriptionsResult.value.subs.values())
           : null;
 
+      // Pricing schedule + Availability — both 404-tolerant in the client
+      // (Apple returns 404 when the schedule/availability has never been
+      // configured; the client translates those to `{ schedule: null,
+      // prices: [] }` / `{ availability: null, territoryIds: [] }` so
+      // the rule fires `fail` rather than crashing the whole checklist).
+      // Other errors (403/network/500) still propagate via Promise.allSettled
+      // and downgrade the rule to `unknown`.
+      const priceSchedule: ChecklistContext['priceSchedule'] =
+        priceScheduleResult.status === 'fulfilled'
+          ? { priceCount: priceScheduleResult.value.prices.length }
+          : null;
+      const availability: ChecklistContext['availability'] =
+        availabilityResult.status === 'fulfilled'
+          ? {
+              territoryCount: availabilityResult.value.availableCount,
+              truncated: availabilityResult.value.truncated,
+            }
+          : null;
+
       // ----- Stage 2: per-version sub-fetches that depend on `editable` -----
       let localizations: ChecklistContext['localizations'] = [];
       const screenshotSetsByLocalization = new Map();
@@ -564,6 +591,8 @@ export function useChecklistQuery(args: {
         primaryCategory,
         appInfoLocalization,
         subscriptionProducts,
+        priceSchedule,
+        availability,
       };
 
       return { ctx, results: runChecklist(ctx) };
