@@ -61,9 +61,10 @@ export default function RevenueCatOnboardingScreen() {
         </View>
 
         <ThemedText style={[TypeScale.body, styles.copy, { color: palette.textSecondary }]}>
-          Connect RevenueCat to see MRR, active subscribers, and 28-day revenue
-          for each app inside Release Pilot. Optional — your release status
-          and reviews already work without it.
+          Connect RevenueCat to power the Today tab — your morning briefing
+          with MRR, 28-day revenue, active subscribers, and trial conversions
+          for each app. Optional, but Today is mostly empty without it. Your
+          release status and reviews work without RevenueCat.
         </ThemedText>
 
         <Pressable

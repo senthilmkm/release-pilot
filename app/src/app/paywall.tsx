@@ -223,7 +223,9 @@ export default function PaywallScreen() {
       return `Start ${selectedPlan.trialDays}-day free trial`;
     }
     if (selectedPlan.kind === 'lifetime') return 'Buy lifetime access';
-    return `Subscribe — ${selectedPlan.priceString}`;
+    // Pin cadence so the CTA never reads as a one-time fee. "$39.99"
+    // is ambiguous; "$39.99/year" matches Apple's own paywall pattern.
+    return `Subscribe — ${pricedWithCadence(selectedPlan)}`;
   }, [selectedPlan, isSelectedCurrentPlan, isSwitchFlow, trialActiveForSelected]);
 
   return (
@@ -277,7 +279,7 @@ export default function PaywallScreen() {
 
         {trialActiveForSelected && selectedPlan ? (
           <ThemedText style={[TypeScale.footnote, styles.trialNote, { color: palette.textSecondary }]}>
-            {selectedPlan.trialDays}-day free trial, then {selectedPlan.priceString}
+            {selectedPlan.trialDays}-day free trial, then {pricedWithCadence(selectedPlan)}
             {selectedPlan.kind === 'annual' && selectedPlan.perMonthString
               ? ` (${selectedPlan.perMonthString})`
               : ''}
@@ -480,6 +482,22 @@ function prettyTitle(plan: PaywallPlan): string {
     case 'monthly':  return 'Pro Monthly';
     case 'lifetime': return 'Pro Lifetime';
     default:         return plan.title || 'Pro';
+  }
+}
+
+/**
+ * Renders a plan's price with its billing cadence pinned: "$39.99/year",
+ * "$4.99/month", or just "$99.99" for lifetime. We never show a bare
+ * price ("$39.99") in a context where the user could mistake it for a
+ * one-time fee — Apple's HIG and every reputable SaaS paywall always
+ * pair price with cadence at the point of decision.
+ */
+function pricedWithCadence(plan: PaywallPlan): string {
+  switch (plan.kind) {
+    case 'annual':   return `${plan.priceString}/year`;
+    case 'monthly':  return `${plan.priceString}/month`;
+    case 'lifetime': return plan.priceString;
+    default:         return plan.priceString;
   }
 }
 

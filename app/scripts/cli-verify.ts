@@ -909,6 +909,80 @@ async function main(): Promise<void> {
   console.log(`  ${DIM}•${RESET} trial → ${describeEntitlement(entTrial)}`);
   console.log(`  ${DIM}•${RESET} paid  → ${describeEntitlement(entPaid)}`);
 
+  // ----- Plan-switching transition matrix --------------------------------
+  // Walks the deriver through the full lifecycle a real user can hit:
+  //   free → trial (yearly) → paid yearly → paid monthly → free → lifetime
+  // For each step we assert (a) the tier inference is correct and (b) the
+  // `isPro` / `isInTrial` flags flip in the expected pattern. This is the
+  // sequence that breaks in production if a future RC SDK update changes
+  // `periodType` casing or `productIdentifier` shape.
+  const mkActive = (
+    productIdentifier: string,
+    periodType: 'TRIAL' | 'INTRO' | 'NORMAL',
+  ): CustomerInfoLike => ({
+    entitlements: {
+      active: {
+        pro: {
+          productIdentifier,
+          periodType,
+          expirationDate: new Date(NOW_TS + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      },
+    },
+  });
+  type TransitionStep = {
+    name: string;
+    info: CustomerInfoLike;
+    expectedTier: 'free' | 'pro_monthly' | 'pro_yearly' | 'pro_lifetime';
+    expectedIsPro: boolean;
+    expectedIsInTrial: boolean;
+  };
+  const transitions: TransitionStep[] = [
+    { name: 'start: free',
+      info: freeInfo, expectedTier: 'free',
+      expectedIsPro: false, expectedIsInTrial: false },
+    { name: 'subscribe yearly (trial)',
+      info: mkActive('release_pilot_pro_yearly', 'TRIAL'),
+      expectedTier: 'pro_yearly', expectedIsPro: true, expectedIsInTrial: true },
+    { name: 'trial ends → paid yearly',
+      info: mkActive('release_pilot_pro_yearly', 'NORMAL'),
+      expectedTier: 'pro_yearly', expectedIsPro: true, expectedIsInTrial: false },
+    { name: 'downgrade to monthly',
+      info: mkActive('release_pilot_pro_monthly', 'NORMAL'),
+      expectedTier: 'pro_monthly', expectedIsPro: true, expectedIsInTrial: false },
+    { name: 'upgrade back to yearly',
+      info: mkActive('release_pilot_pro_yearly', 'NORMAL'),
+      expectedTier: 'pro_yearly', expectedIsPro: true, expectedIsInTrial: false },
+    { name: 'cancel → free',
+      info: freeInfo, expectedTier: 'free',
+      expectedIsPro: false, expectedIsInTrial: false },
+    { name: 'one-time lifetime purchase',
+      info: mkActive('release_pilot_pro_lifetime', 'NORMAL'),
+      expectedTier: 'pro_lifetime', expectedIsPro: true, expectedIsInTrial: false },
+  ];
+  const transitionFailures: string[] = [];
+  for (const t of transitions) {
+    const ent = deriveEntitlement(t.info, 'pro');
+    const mismatches: string[] = [];
+    if (ent.tier !== t.expectedTier)            mismatches.push(`tier=${ent.tier} (want ${t.expectedTier})`);
+    if (ent.isPro !== t.expectedIsPro)          mismatches.push(`isPro=${ent.isPro} (want ${t.expectedIsPro})`);
+    if (ent.isInTrial !== t.expectedIsInTrial)  mismatches.push(`isInTrial=${ent.isInTrial} (want ${t.expectedIsInTrial})`);
+    if (mismatches.length > 0) {
+      transitionFailures.push(`${t.name}: ${mismatches.join(', ')}`);
+    }
+  }
+  if (transitionFailures.length > 0) {
+    for (const f of transitionFailures) fail(`Transition failed: ${f}`);
+    throw new Error('Plan transition deriver mismatch');
+  }
+  ok(`All ${transitions.length} plan-transition scenarios derived the expected tier + flags`);
+  console.log();
+  info('Plan-transition sequence (entitlement deriver verifies each step):');
+  for (const t of transitions) {
+    const ent = deriveEntitlement(t.info, 'pro');
+    console.log(`  ${DIM}•${RESET} ${truncate(t.name, 30).padEnd(30)} → ${describeEntitlement(ent)}`);
+  }
+
   // -----------------------------------------------------------------------
   step(13, 14, 'RevenueCat REST client offline self-test (mock fetch, no RC budget used)');
   // -----------------------------------------------------------------------
@@ -1039,21 +1113,33 @@ async function runRevenueCatOfflineSelfTest(): Promise<void> {
     });
 
   try {
-    // Projection sanity
+    // Projection sanity. The v2 /metrics/overview response is an array of
+    // `{id, value}` metric objects, not a flat record — `projectOverview`
+    // indexes them by id. We feed it a realistic minimal v2 payload.
     const sample = projectOverview({
-      active_trials: 12,
-      active_subscriptions: 340,
-      mrr: 9999,
-      revenue_last_28_days: 12500,
-      new_customers_last_28_days: 240,
-      active_users_last_28_days: 4500,
+      metrics: [
+        { id: 'active_trials', value: 12 },
+        { id: 'active_subscriptions', value: 340 },
+        { id: 'mrr', value: 9999 },
+        { id: 'revenue', value: 12500 },
+        { id: 'new_customers', value: 240 },
+        { id: 'active_users', value: 4500 },
+      ],
       currency: 'USD',
     });
     check('projectOverview: numeric fields', sample.activeTrials === 12 && sample.mrr === 9999);
     check('projectOverview: currency preserved', sample.currency === 'USD');
 
-    // 200 happy path
-    mock(() => json({ active_subscriptions: 50, mrr: 99.99 }));
+    // 200 happy path — same v2 shape, smaller payload.
+    mock(() =>
+      json({
+        metrics: [
+          { id: 'active_subscriptions', value: 50 },
+          { id: 'mrr', value: 99.99 },
+        ],
+        currency: 'USD',
+      }),
+    );
     {
       const client = RevenueCatClient.create({ projectId: 'proj_x', secretKey: 'sk_demo' });
       const ov = await client.getOverview();

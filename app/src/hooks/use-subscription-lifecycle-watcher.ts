@@ -30,10 +30,17 @@ export function useSubscriptionLifecycleWatcher(): void {
   const transitionAnnouncedAtRef = useRef<number>(0);
 
   // 1. Refresh from RC on every foreground transition.
+  //
+  // CRITICAL: pass `invalidateCache: true` so we catch plan changes the
+  // user made OUTSIDE the app (iOS Settings → Apple ID → Subscriptions,
+  // App Store account screen, family sharing changes, etc.). Without
+  // this, RC's 5-minute customer-info cache returns the pre-change
+  // state and the More tab keeps showing "Pro Monthly · Renews
+  // <old date>" until the cache naturally expires.
   useEffect(() => {
     const onChange = (state: AppStateStatus) => {
       if (state === 'active') {
-        void refreshSubscriptionState();
+        void refreshSubscriptionState({ invalidateCache: true });
       }
     };
     const sub = AppState.addEventListener('change', onChange);

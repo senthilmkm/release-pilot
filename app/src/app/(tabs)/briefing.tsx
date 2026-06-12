@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Sunrise,
   TrendingUp,
+  X,
 } from 'lucide-react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -19,6 +20,7 @@ import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
 import { useAllAppsQuery, useAllReviewsQuery, useLatestStatesQuery } from '@/lib/api/asc-queries';
 import { useRevenueOverviewsQuery } from '@/lib/api/revenuecat-queries';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
+import { dismissRcBanner, isRcBannerDismissed } from '@/lib/state/today-banner';
 import {
   buildBriefing,
   type AppBriefingCard,
@@ -127,6 +129,35 @@ export default function BriefingTab() {
     }
   };
 
+  // -- "Connect RevenueCat" banner state ------------------------------------
+  // Single source of truth: show the banner iff the user has at least one
+  // ASC app (otherwise there's no value to demonstrate) AND zero apps have
+  // a verified RC key AND they haven't explicitly dismissed it. Read once
+  // on mount via useState; the dismiss handler updates local state so the
+  // banner hides immediately without waiting for a re-render from MMKV.
+  const noRcConnected = useMemo(
+    () => Object.values(rcMeta).every((m) => !m?.verified),
+    [rcMeta],
+  );
+  const [rcBannerDismissed, setRcBannerDismissed] = useState(() => isRcBannerDismissed());
+  const showRcBanner = apps.length > 0 && noRcConnected && !rcBannerDismissed;
+  const onDismissRcBanner = useCallback(() => {
+    dismissRcBanner();
+    setRcBannerDismissed(true);
+  }, []);
+  const onTapRcBanner = useCallback(() => {
+    // Route to the first app's RC paste flow. We don't auto-dismiss
+    // here — if the user backs out without connecting, the banner
+    // should still be visible so they can try again. They tap X to
+    // hide it permanently.
+    const first = apps[0];
+    if (!first) return;
+    router.push({
+      pathname: '/(onboarding)/revenuecat-paste',
+      params: { ascAppId: first.ascId, appName: first.name, bundleId: first.bundleId },
+    });
+  }, [apps]);
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: palette.background }]}
@@ -150,6 +181,10 @@ export default function BriefingTab() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.accent} />
         }
       >
+        {showRcBanner && (
+          <ConnectRcBanner onTap={onTapRcBanner} onDismiss={onDismissRcBanner} />
+        )}
+
         <HeroSummary briefing={briefing} />
 
         {briefing.cards.length === 0 ? (
@@ -195,6 +230,64 @@ function formatTodayHeader(briefing: Briefing): string {
   if (sinceHours < 36) return `${dateStr} · changes since yesterday`;
   if (sinceHours < 24 * 7) return `${dateStr} · changes since ${Math.round(sinceHours / 24)} days ago`;
   return dateStr;
+}
+
+// ---------------------------------------------------------------------------
+// Connect-RevenueCat banner (top of Today tab when nothing's connected)
+// ---------------------------------------------------------------------------
+
+function ConnectRcBanner({
+  onTap,
+  onDismiss,
+}: {
+  onTap: () => void;
+  onDismiss: () => void;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+
+  return (
+    <View
+      style={[
+        styles.connectRcBanner,
+        { backgroundColor: palette.accentMuted, borderColor: palette.accent },
+      ]}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Connect RevenueCat to see revenue, MRR, and subscribers for each of your apps"
+        onPress={onTap}
+        style={styles.connectRcBannerMain}
+      >
+        <View style={[styles.connectRcBannerIcon, { backgroundColor: palette.accent }]}>
+          <DollarSign size={18} color="#FFFFFF" strokeWidth={2.4} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+            Unlock revenue tracking
+          </ThemedText>
+          <ThemedText
+            style={[TypeScale.footnote, { color: palette.textSecondary }]}
+            numberOfLines={2}
+          >
+            Connect RevenueCat to see live MRR, 28-day revenue, active
+            subscribers, and trial conversions for each app — right here on
+            the Today tab.
+          </ThemedText>
+        </View>
+        <ChevronRight size={18} color={palette.accent} strokeWidth={2.4} />
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss this prompt"
+        hitSlop={12}
+        onPress={onDismiss}
+        style={styles.connectRcBannerDismiss}
+      >
+        <X size={16} color={palette.textTertiary} strokeWidth={2.2} />
+      </Pressable>
+    </View>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -664,5 +757,29 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
     borderWidth: StyleSheet.hairlineWidth,
     marginTop: Spacing.two,
+  },
+  connectRcBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  connectRcBannerMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
+  },
+  connectRcBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectRcBannerDismiss: {
+    padding: Spacing.three,
+    alignSelf: 'flex-start',
   },
 });

@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -13,6 +13,7 @@ import {
   ExternalLink,
   LayoutGrid,
   Plus,
+  RefreshCw,
   ShieldOff,
   Sparkles,
   Trash2,
@@ -30,7 +31,10 @@ import { useEntitlement } from '@/hooks/use-entitlement';
 import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import { useNotificationPermission } from '@/hooks/use-notification-permission';
 import { restorePurchases } from '@/lib/subscription/purchase';
+import { refreshSubscriptionState } from '@/lib/subscription/init';
 import { describeEntitlement } from '@/lib/subscription/entitlements';
+import { useSubscriptionStore } from '@/lib/state/subscription';
+import { haptic } from '@/lib/utils/haptics';
 import Purchases from 'react-native-purchases';
 
 /**
@@ -51,8 +55,47 @@ export default function MoreTab() {
   const removeRcEntry = useAppRevenueCatStore((s) => s.remove);
   const appsQuery = useAllAppsQuery();
   const { entitlement, status } = useEntitlement();
+  const lastSyncedAtMs = useSubscriptionStore((s) => s.lastSyncedAtMs);
   const paywall = usePaywallGate();
   const notifPerm = useNotificationPermission();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [forceSyncing, setForceSyncing] = useState(false);
+
+  /** Pull-to-refresh handler — bust the RC cache so any plan change
+   *  made outside the app (iOS Settings, paywall on another device) is
+   *  reflected immediately. */
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshSubscriptionState({ invalidateCache: true });
+      void appsQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [appsQuery]);
+
+  /** Nuclear "Force re-sync with App Store" — re-fetches the StoreKit
+   *  receipt from Apple and re-validates server-side. Only needed when
+   *  cache invalidation alone didn't pick up a plan change (rare, but
+   *  the manual escape hatch users need when something's clearly stuck). */
+  const handleForceSync = useCallback(async () => {
+    void haptic.light();
+    setForceSyncing(true);
+    try {
+      await refreshSubscriptionState({ syncPurchases: true });
+      void haptic.success();
+      Alert.alert(
+        'Synced',
+        'Your subscription has been re-checked with the App Store.',
+      );
+    } catch (e) {
+      void haptic.error();
+      Alert.alert('Sync failed', String(e));
+    } finally {
+      setForceSyncing(false);
+    }
+  }, []);
 
   const handleAddAccount = useCallback(() => {
     const decision = paywall.check('add-account-limit');
@@ -149,7 +192,16 @@ export default function MoreTab() {
         </ThemedText>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={palette.accent}
+          />
+        }
+      >
         {/* --- Subscription card --- */}
         <SectionLabel palette={palette}>SUBSCRIPTION</SectionLabel>
         <View style={[styles.card, { backgroundColor: palette.backgroundElevated }]}>
@@ -164,6 +216,11 @@ export default function MoreTab() {
               <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
                 {subscriptionSubtitle(entitlement, status)}
               </ThemedText>
+              {lastSyncedAtMs ? (
+                <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+                  Synced {formatTimeAgo(lastSyncedAtMs)} · pull down to refresh
+                </ThemedText>
+              ) : null}
             </View>
           </View>
 
@@ -216,17 +273,39 @@ export default function MoreTab() {
             </View>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Restore previous purchases"
-            onPress={handleRestore}
-            hitSlop={8}
-            style={styles.linkRow}
-          >
-            <ThemedText style={[TypeScale.footnote, { color: palette.accent }]}>
-              Restore Purchases
-            </ThemedText>
-          </Pressable>
+          <View style={styles.linkRowGroup}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Restore previous purchases"
+              onPress={handleRestore}
+              hitSlop={8}
+              style={styles.linkRow}
+            >
+              <ThemedText style={[TypeScale.footnote, { color: palette.accent }]}>
+                Restore Purchases
+              </ThemedText>
+            </Pressable>
+            <ThemedText style={[TypeScale.footnote, { color: palette.textTertiary }]}>·</ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Force re-sync subscription with the App Store. Use this if your plan is stuck on a stale value after switching."
+              onPress={handleForceSync}
+              disabled={forceSyncing}
+              hitSlop={8}
+              style={styles.linkRow}
+            >
+              {forceSyncing ? (
+                <ActivityIndicator color={palette.accent} />
+              ) : (
+                <>
+                  <RefreshCw size={12} color={palette.accent} strokeWidth={2.4} />
+                  <ThemedText style={[TypeScale.footnote, { color: palette.accent }]}>
+                    Force re-sync
+                  </ThemedText>
+                </>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         {/* --- Accounts --- */}
@@ -516,6 +595,24 @@ function SectionLabel({
   );
 }
 
+/**
+ * Compact "synced X ago" formatter. We intentionally cap at "1d ago" —
+ * if it's been longer than a day, RC's foreground refresh hasn't fired
+ * (or has been failing silently) and the user should pull-to-refresh
+ * regardless of the exact delta.
+ */
+function formatTimeAgo(ms: number): string {
+  const delta = Math.max(0, Date.now() - ms);
+  const sec = Math.floor(delta / 1000);
+  if (sec < 5) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return '> 1d ago';
+}
+
 function subscriptionSubtitle(
   entitlement: ReturnType<typeof useEntitlement>['entitlement'],
   status: ReturnType<typeof useEntitlement>['status'],
@@ -603,8 +700,18 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.three + 36 + Spacing.three,
   },
   linkRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
     paddingVertical: Spacing.one,
+    minHeight: 32,
+  },
+  linkRowGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
   },
   footer: {
     textAlign: 'center',

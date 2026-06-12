@@ -42,18 +42,23 @@ export default function TrialScreen() {
   const headlinePrice = headlinePlan?.priceString ?? '…';
   const headlineSubtitle = useMemo(() => {
     if (!headlinePlan) return 'Loading prices from App Store Connect…';
+    // Always pin the cadence to the price ("$39.99/year") so the value
+    // is unambiguous. Then OPTIONALLY append the per-month equivalent
+    // for annual plans as a secondary "feels cheaper" framing
+    // ("$39.99/year · $3.33/mo"). Without the /year suffix, "$39.99"
+    // reads as a one-time fee — Apple's own paywalls always pin cadence.
+    const pricedCadence =
+      headlinePlan.kind === 'annual'   ? `${headlinePrice}/year`
+    : headlinePlan.kind === 'monthly'  ? `${headlinePrice}/month`
+    : /* lifetime / unknown */           headlinePrice;
+    const perMonthSuffix =
+      headlinePlan.kind === 'annual' && headlinePlan.perMonthString
+        ? ` · ${headlinePlan.perMonthString}`
+        : '';
     if (headlinePlan.trialDays > 0) {
-      const cadence =
-        headlinePlan.kind === 'annual' && headlinePlan.perMonthString
-          ? ` · ${headlinePlan.perMonthString}`
-          : headlinePlan.kind === 'annual'
-          ? ' per year'
-          : headlinePlan.kind === 'monthly'
-          ? ' per month'
-          : '';
-      return `${headlinePlan.trialDays}-day free trial, then ${headlinePrice}${cadence}`;
+      return `${headlinePlan.trialDays}-day free trial, then ${pricedCadence}${perMonthSuffix}`;
     }
-    return headlinePrice;
+    return `${pricedCadence}${perMonthSuffix}`;
   }, [headlinePlan, headlinePrice]);
 
   const ctaLabel = headlinePlan?.trialDays

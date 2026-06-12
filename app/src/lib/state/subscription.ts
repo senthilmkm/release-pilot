@@ -41,12 +41,19 @@ type SubscriptionState = {
   status: SubscriptionLifecycle;
   entitlement: EntitlementStatus;
   offering: PaywallOffering | null;
+  /** Wall-clock ms when the store was last populated from a
+   *  successful RC fetch. `null` until the first sync completes. Used
+   *  by the More tab to render "Synced 12s ago" so users can tell at
+   *  a glance whether they're looking at stale data. Persisted so the
+   *  indicator survives cold starts. */
+  lastSyncedAtMs: number | null;
 };
 
 const INITIAL_STATE: SubscriptionState = {
   status: 'loading',
   entitlement: FREE_STATUS,
   offering: null,
+  lastSyncedAtMs: null,
 };
 
 export const useSubscriptionStore = create<SubscriptionState>()(
@@ -62,6 +69,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       partialize: (s) => ({
         entitlement: s.entitlement,
         offering: s.offering,
+        lastSyncedAtMs: s.lastSyncedAtMs,
       }),
     },
   ),

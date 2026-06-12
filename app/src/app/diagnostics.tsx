@@ -13,6 +13,7 @@ import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
 import { useAccountsStore } from '@/lib/state/accounts';
 import { useEntitlement } from '@/hooks/use-entitlement';
 import { describeEntitlement } from '@/lib/subscription/entitlements';
+import { useSubscriptionStore } from '@/lib/state/subscription';
 import { usePushRegistrationStore } from '@/lib/state/push-registration';
 import { useIsOnline } from '@/hooks/use-is-online';
 import { getChecklistRuns } from '@/lib/subscription/gate-counters';
@@ -33,6 +34,7 @@ export default function DiagnosticsScreen() {
 
   const accounts = useAccountsStore((s) => s.accounts);
   const { entitlement, status: subStatus } = useEntitlement();
+  const lastSyncedAtMs = useSubscriptionStore((s) => s.lastSyncedAtMs);
   const pushRegMap = usePushRegistrationStore((s) => s.registrations);
   const deviceToken = usePushRegistrationStore((s) => s.deviceToken);
   const pushReg = useMemo(() => Object.values(pushRegMap), [pushRegMap]);
@@ -52,15 +54,27 @@ export default function DiagnosticsScreen() {
         ],
       },
       {
+        // Includes EVERY field we derive from RC, so when a user reports
+        // "I upgraded but the app still shows Monthly" we can ask for a
+        // screenshot and immediately see whether:
+        //   - RC's cache returned an old productIdentifier (Active product ID)
+        //   - The expiration date is the old one (Expires)
+        //   - The store hasn't refreshed at all (Last synced)
+        //   - Multiple subscriptions are active (user has both monthly +
+        //     yearly because the ASC subscription group is misconfigured)
         title: 'Subscription',
         rows: [
-          ['Tier',          describeEntitlement(entitlement)],
-          ['SDK status',    subStatus],
-          ['In trial',      entitlement.isInTrial ? 'Yes' : 'No'],
-          ['Grace period',  entitlement.isInGracePeriod ? 'Yes' : 'No'],
-          ['Expires',       entitlement.expiresAtMs
+          ['Tier',              describeEntitlement(entitlement)],
+          ['SDK status',        subStatus],
+          ['In trial',          entitlement.isInTrial ? 'Yes' : 'No'],
+          ['Grace period',      entitlement.isInGracePeriod ? 'Yes' : 'No'],
+          ['Active product ID', entitlement.activeProductId ?? '—'],
+          ['Expires',           entitlement.expiresAtMs
             ? new Date(entitlement.expiresAtMs).toLocaleString()
             : '—'],
+          ['Last synced',       lastSyncedAtMs
+            ? new Date(lastSyncedAtMs).toLocaleString()
+            : '(never)'],
         ],
       },
       {

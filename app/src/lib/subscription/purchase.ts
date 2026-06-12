@@ -53,7 +53,14 @@ export async function purchasePlan(
       return { kind: 'error', message: 'That plan is no longer available. Pull to refresh.' };
     }
     const { customerInfo } = await Purchases.purchasePackage(pkg);
-    await refreshSubscriptionState();
+    // CRITICAL: bust RC's 5-minute cache before re-reading. Without
+    // `invalidateCache: true`, refreshSubscriptionState would call
+    // `getCustomerInfo()` which returns the PRE-PURCHASE cached payload
+    // and overwrites the fresh state our listener just wrote.
+    // Symptom of the bug it fixes: user upgrades Monthly→Yearly, alert
+    // says "Plan updated", but More tab still shows "Pro Monthly · Renews
+    // <old date>" for up to 5 minutes.
+    await refreshSubscriptionState({ invalidateCache: true });
     const cfg = getRevenueCatConfig();
     const isPro = customerInfo.entitlements.active[cfg.entitlementId] != null;
     return { kind: 'success', isPro };
@@ -113,7 +120,9 @@ export async function restorePurchases(): Promise<PurchaseResult> {
   }
   try {
     const customerInfo = await Purchases.restorePurchases();
-    await refreshSubscriptionState();
+    // Same rationale as purchasePlan: bust the cache so the follow-up
+    // read returns the post-restore state, not the pre-restore one.
+    await refreshSubscriptionState({ invalidateCache: true });
     const cfg = getRevenueCatConfig();
     const isPro = customerInfo.entitlements.active[cfg.entitlementId] != null;
     return { kind: 'success', isPro };
