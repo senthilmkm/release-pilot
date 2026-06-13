@@ -21,6 +21,12 @@ Print this. Cross off each line as you do it. Do not skip — the items are orde
   - Hosted via GitHub Pages from `docs/support.html`
   - Verified live (HTTP 200) — has email contact + how-to sections
   - Apple requires `https://` (not `mailto:`) — this satisfies that
+- [ ] **Terms of Use URL is set in the Subscription Group EULA field** at `https://senthilmkm.github.io/release-pilot/terms.html`
+  - Hosted via GitHub Pages from `docs/terms.html` (committed alongside this row)
+  - After pushing, verify the page loads: open the URL in a browser → should render the Terms with the same styling as `privacy.html`
+  - In App Store Connect → Subscriptions → tap the subscription group (e.g. `release_pilot_pro`) → App Store Information → scroll to the **Custom EULA** section → paste the Terms URL there
+  - Without this, Apple defaults to their standard EULA — which is legal but means your South Carolina governing-law clause, your refund pointer, and your 30-day notice for plan changes have no binding URL
+  - Apple sometimes also exposes a "License Agreement" field at the **app level** (App Information → App Store → License Agreement) — paste the same URL there too for belt-and-suspenders coverage
 - [x] **Account deletion path is functional**
   - Single button: More → DANGER ZONE → Erase all data
   - Wipes Keychain (.p8s + RC secrets), SQLite, MMKV, scheduled notifications, RevenueCat subscriber alias, worker push registration, and the widget App Group
