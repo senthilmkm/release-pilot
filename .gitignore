@@ -109,10 +109,12 @@ playwright-report/
 # ---- Markdown docs — keep local only ----
 # All internal planning notes, audits, app-store copy templates, and
 # AGENTS/CLAUDE context files stay on disk for personal reference but
-# are NOT tracked by git. The root README.md is the one exception so
-# github.com/senthilmkm/release-pilot still has a visible description.
+# are NOT tracked by git. Exceptions are explicit, file-by-file:
+#   - root README.md (so the public repo has a visible description)
+#   - worker/APNS_ROTATION.md (operational runbook, no secrets)
 *.md
 !/README.md
+!worker/APNS_ROTATION.md
 
 # ---- Misc ----
 *.bak
