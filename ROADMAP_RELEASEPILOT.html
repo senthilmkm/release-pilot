@@ -205,7 +205,7 @@
   <div class="stats">
     <div class="stat"><div class="num">10</div><div class="lab">V1 phases shipped</div></div>
     <div class="stat"><div class="num">353</div><div class="lab">automated tests passing</div></div>
-    <div class="stat"><div class="num">6</div><div class="lab">V1 items still pending</div></div>
+    <div class="stat"><div class="num">3</div><div class="lab">V1 items still pending</div></div>
     <div class="stat"><div class="num">9</div><div class="lab">V1.5 + V2 features queued</div></div>
   </div>
 
@@ -330,6 +330,36 @@
           <td class="status"><span class="badge b-done">Done</span></td>
           <td class="note">Hits real ASC API end-to-end; covers JWT, apps, versions, reviews, checklist, native projection, push diff, gates, RC, briefing.</td>
         </tr>
+        <tr>
+          <td class="name">On-device QA pass on physical iPhone</td>
+          <td class="area">QA</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Walked all MVP flows on the installed dev build: state badges, Lock-Screen + Home widgets, Live Activity, Today tab + 7am push, paywall + restore, Face ID gate, Free vs Pro gating across every entry point.</td>
+        </tr>
+        <tr>
+          <td class="name">App Store Connect: IAP subscription group + products</td>
+          <td class="area">Store</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Subscription group + monthly / yearly products configured in ASC, mapped into RevenueCat with the 14-day intro trial. Prices loaded at runtime — no hardcoded values in the bundle.</td>
+        </tr>
+        <tr>
+          <td class="name">App Store listing assets + privacy / support hosting</td>
+          <td class="area">Store</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">App icon, screenshots, marketing copy, keywords, category, age rating, privacy nutrition labels. Privacy Policy + Support pages hosted on GitHub Pages with a stable URL referenced in ASC.</td>
+        </tr>
+        <tr>
+          <td class="name">GitHub repo + initial push</td>
+          <td class="area">Ops</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note">Public repo at <code>github.com/senthilmkm/release-pilot</code>; `main` is the source of truth, all v1.0.1 work committed and pushed.</td>
+        </tr>
+        <tr>
+          <td class="name">Cloudflare push worker — production deployment</td>
+          <td class="area">Ops</td>
+          <td class="status"><span class="badge b-done">Done</span></td>
+          <td class="note"><code>wrangler deploy</code> live; D1 database created; APNs <code>.p8</code> secret loaded; 15-min cron tick verified firing in Cloudflare dashboard; state-change pushes (Submitted&nbsp;&rarr;&nbsp;In Review&nbsp;&rarr;&nbsp;Ready for Sale) confirmed delivering to test device.</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -338,8 +368,8 @@
 
 <!-- ============================================================== -->
 <section>
-  <h2>V1 (MVP) — Pending before App Store launch <span class="scope">blockers + nice-to-haves</span></h2>
-  <p class="section-desc">Code is done; these are the operational items left between &ldquo;app works locally&rdquo; and &ldquo;app is in the store earning money.&rdquo;</p>
+  <h2>V1 (MVP) — Remaining before launch + post-submission queue <span class="scope">3 items</span></h2>
+  <p class="section-desc">v1.0 binary is submitted and under Apple review. These are the only items still between &ldquo;awaiting verdict&rdquo; and &ldquo;earning money.&rdquo; The v1.0.1 backlog row tracks JS/TS + native changes already committed to <code>main</code> that will ship in the next EAS build.</p>
   <div class="panel">
     <table>
       <thead>
@@ -352,46 +382,30 @@
       </thead>
       <tbody>
         <tr>
-          <td class="name">On-device verification of MVP flows</td>
-          <td class="area">QA</td>
+          <td class="name">v1.0 Apple App Review</td>
+          <td class="area">Release</td>
           <td class="status"><span class="badge b-inprog">In progress</span></td>
-          <td class="note">Walk the 12-item post-build checklist on the installed dev build (current step).</td>
+          <td class="note">Production build uploaded via <code>eas submit</code>; binary in Apple's review queue. Typical turnaround 24&ndash;48h. No OTA updates pushed during review &mdash; v1.0.1 backlog stays parked on <code>main</code> until approval.</td>
         </tr>
         <tr>
-          <td class="name">Briefing widget (Home + Lock Screen)</td>
+          <td class="name">Briefing widget (glanceable Home + Lock variant)</td>
           <td class="area">Native</td>
           <td class="status"><span class="badge b-partial">Partial</span></td>
-          <td class="note">In-app Today tab + 7am push shipped. Glanceable widget is descoped pending user demand &mdash; requires another EAS build.</td>
+          <td class="note">In-app Today tab + 7am local push shipped. Standalone glanceable widget is descoped pending user demand &mdash; the in-app + push surfaces deliver the value today; widget adds a third surface for the same data and isn't a launch blocker. Would require another EAS build when prioritized.</td>
         </tr>
         <tr>
-          <td class="name">Deploy Cloudflare push worker to production</td>
-          <td class="area">Ops</td>
-          <td class="status"><span class="badge b-pending">Pending</span></td>
-          <td class="note">Code complete + 103 tests passing. Needs <code>wrangler login</code>, D1 create, APNs secret set, deploy. ~15 min once secrets are ready.</td>
-        </tr>
-        <tr>
-          <td class="name">App Store Connect: subscription products + group</td>
-          <td class="area">Store</td>
-          <td class="status"><span class="badge b-pending">Pending</span></td>
-          <td class="note">Create <code>release_pilot_pro_monthly</code> + <code>_yearly</code> in ONE subscription group; map into RC; set 14-day trial as intro offer.</td>
-        </tr>
-        <tr>
-          <td class="name">App Store listing assets</td>
-          <td class="area">Store</td>
-          <td class="status"><span class="badge b-pending">Pending</span></td>
-          <td class="note">App icon (final), 6.7" + 6.1" screenshots, marketing copy, keywords, privacy policy URL, support URL.</td>
-        </tr>
-        <tr>
-          <td class="name">Production EAS build + TestFlight + App Store submission</td>
+          <td class="name">v1.0.1 post-approval backlog (parked on <code>main</code>)</td>
           <td class="area">Release</td>
-          <td class="status"><span class="badge b-pending">Pending</span></td>
-          <td class="note"><code>eas build --profile production --platform ios</code> &rarr; <code>eas submit</code> &rarr; review.</td>
-        </tr>
-        <tr>
-          <td class="name">Initialize git remote + push project</td>
-          <td class="area">Ops</td>
-          <td class="status"><span class="badge b-pending">Pending</span></td>
-          <td class="note">Deferred per your instructions until after local testing is complete.</td>
+          <td class="status"><span class="badge b-inprog">In progress</span></td>
+          <td class="note">
+            Four commits on <code>main</code> waiting on v1.0 approval before shipping (either bundled into a v1.0.1 EAS build or OTA'd):
+            <ul style="margin: 6px 0 0 0; padding-left: 18px;">
+              <li><strong>Checklist 15 &rarr; 17 rules</strong> &mdash; catches the missing-price-tier + missing-territory rejection (OTA-able).</li>
+              <li><strong>Sticky daily 'State changes' counter</strong> &mdash; baseline anchored at 7am local so multi-app changes accumulate through the day instead of resetting on tab re-open (OTA-able).</li>
+              <li><strong>Lock-Screen circular widget label</strong> &mdash; LIVE&nbsp;&rarr;&nbsp;WIP with a checkmark when count is 0 (native, requires EAS build).</li>
+              <li><strong>Planning docs</strong> &mdash; progressive app picker design + App Preview production plan (not bundled, repo-only).</li>
+            </ul>
+          </td>
         </tr>
       </tbody>
     </table>
