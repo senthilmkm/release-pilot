@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Application from 'expo-application';
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
-import { Bell, Bug, Check, ChevronLeft, Copy, X } from 'lucide-react-native';
+import { Bell, Bug, Check, ChevronLeft, Copy, Mail, X } from 'lucide-react-native';
+
+const SUPPORT_EMAIL = 'senthil930@gmail.com';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Radii, Spacing, TypeScale } from '@/constants/theme';
@@ -114,13 +116,62 @@ export default function DiagnosticsScreen() {
     ];
   }, [buildVersion, online, entitlement, subStatus, accounts, deviceToken, pushReg, recentRuns, lastSyncedAtMs]);
 
+  const diagnosticsText = useMemo(
+    () => blocks
+      .map((b) => `## ${b.title}\n` + b.rows.map(([k, v]) => `  ${k}: ${v}`).join('\n'))
+      .join('\n\n'),
+    [blocks],
+  );
+
   const handleCopyAll = async () => {
     void haptic.light();
-    const text = blocks
-      .map((b) => `## ${b.title}\n` + b.rows.map(([k, v]) => `  ${k}: ${v}`).join('\n'))
-      .join('\n\n');
-    await Clipboard.setStringAsync(text);
+    await Clipboard.setStringAsync(diagnosticsText);
     Alert.alert('Copied', 'Diagnostics copied to clipboard. Paste into your support email.');
+  };
+
+  const handleEmailSupport = async () => {
+    void haptic.light();
+    const body = `Hi Release Pilot team,
+
+[Describe what happened here, e.g. "Tapped Restore Purchases but my Pro status didn't come back"]
+
+Steps to reproduce:
+1.
+2.
+3.
+
+What you expected vs what happened:
+
+
+---
+Diagnostics (auto-filled, do not edit):
+
+${diagnosticsText}
+`;
+    const subject = `Release Pilot support — v${buildVersion}`;
+    const mailto =
+      `mailto:${SUPPORT_EMAIL}` +
+      `?subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(mailto);
+      if (!canOpen) {
+        await Clipboard.setStringAsync(diagnosticsText);
+        Alert.alert(
+          'No email app set up',
+          `Email us at ${SUPPORT_EMAIL}. We copied the diagnostics to your clipboard so you can paste them into your message.`,
+        );
+        return;
+      }
+      await Linking.openURL(mailto);
+    } catch {
+      await Clipboard.setStringAsync(diagnosticsText);
+      Alert.alert(
+        'Could not open mail',
+        `Email us directly at ${SUPPORT_EMAIL}. We copied the diagnostics to your clipboard.`,
+      );
+    }
   };
 
   const handleSendTestPush = async () => {
@@ -229,6 +280,31 @@ export default function DiagnosticsScreen() {
             </View>
           </View>
         ))}
+
+        <View style={styles.block}>
+          <ThemedText style={[TypeScale.captionEmph, styles.blockTitle, { color: palette.textTertiary }]}>
+            SUPPORT
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Email support at ${SUPPORT_EMAIL} with diagnostics attached`}
+            onPress={handleEmailSupport}
+            style={({ pressed }) => [
+              styles.testButton,
+              { backgroundColor: palette.backgroundElevated, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Mail size={18} color={palette.accent} strokeWidth={2.2} />
+            <View style={styles.testButtonText}>
+              <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+                Email support
+              </ThemedText>
+              <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+                Opens Mail with diagnostics pre-attached. Add what went wrong at the top.
+              </ThemedText>
+            </View>
+          </Pressable>
+        </View>
 
         <View style={styles.block}>
           <ThemedText style={[TypeScale.captionEmph, styles.blockTitle, { color: palette.textTertiary }]}>
