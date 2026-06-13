@@ -344,6 +344,23 @@ function HeroSummary({ briefing }: { briefing: Briefing }) {
         { backgroundColor: palette.backgroundElevated, borderColor: palette.border },
       ]}
     >
+      {/*
+       * Scopes the delta-based stats below (State changes + New reviews)
+       * to the daily 7am-local briefing window. Without this caption,
+       * the bare "0" / "3" numbers are ambiguous ("changes since when?").
+       * Matches the visual pattern of the Revenue section caption further
+       * down the card.
+       */}
+      <ThemedText
+        style={[
+          TypeScale.caption,
+          styles.heroWindowCaption,
+          { color: palette.textTertiary },
+        ]}
+      >
+        Since 7:00 AM · resets each morning
+      </ThemedText>
+
       <View style={styles.heroRow}>
         <HeroStat
           icon={<ArrowRight size={18} color={palette.accent} strokeWidth={2.2} />}
@@ -761,6 +778,11 @@ const styles = StyleSheet.create({
   heroRow: {
     flexDirection: 'row',
     gap: Spacing.three,
+  },
+  heroWindowCaption: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: Spacing.two,
   },
   heroSectionDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
