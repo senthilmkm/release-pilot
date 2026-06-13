@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Release Pilot terms of service. Plain-English terms for the App Store Connect companion app.">
+<title>Terms of Service — Release Pilot</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --bg-elev: #f7f7f9;
+    --text: #0a0a0a;
+    --text-secondary: #4b5563;
+    --text-tertiary: #9ca3af;
+    --accent: #2563eb;
+    --accent-muted: #dbeafe;
+    --border: #e5e7eb;
+    --code-bg: #f3f4f6;
+    --tl-dr-bg: #eff6ff;
+    --tl-dr-border: #bfdbfe;
+    --content-max: 740px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0a0a;
+      --bg-elev: #141414;
+      --text: #f5f5f5;
+      --text-secondary: #a3a3a3;
+      --text-tertiary: #6b7280;
+      --accent: #60a5fa;
+      --accent-muted: #1e3a8a;
+      --border: #262626;
+      --code-bg: #1a1a1a;
+      --tl-dr-bg: #0f1e3b;
+      --tl-dr-border: #1e3a8a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in oklab, var(--bg) 92%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+  }
+  .nav {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .brand .badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 70%, #8b5cf6));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .nav-links {
+    display: flex;
+    gap: 18px;
+    font-size: 14px;
+  }
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .nav-links a:hover { color: var(--text); }
+  main {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 48px 20px 96px;
+  }
+  .hero {
+    margin-bottom: 36px;
+  }
+  .hero h1 {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    margin-bottom: 8px;
+  }
+  .hero .meta {
+    color: var(--text-secondary);
+    font-size: 14px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .hero .meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .tl-dr {
+    background: var(--tl-dr-bg);
+    border: 1px solid var(--tl-dr-border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 28px 0;
+  }
+  .tl-dr h2 {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    border: none;
+    padding: 0;
+  }
+  .tl-dr ul {
+    padding-left: 20px;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .tl-dr li + li { margin-top: 6px; }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin-top: 48px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  p { margin-bottom: 14px; }
+  ul, ol { margin: 14px 0 14px 22px; }
+  li { margin-bottom: 6px; }
+  a { color: var(--accent); }
+  a:hover { text-decoration: underline; }
+  strong { font-weight: 700; color: var(--text); }
+  code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+    font-size: 0.88em;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 22px;
+    font-size: 15px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-elev);
+  }
+  .updated {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 36px 0;
+  }
+  footer {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 32px 20px 48px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--text-secondary); margin: 0 8px; text-decoration: none; }
+  footer a:hover { color: var(--text); text-decoration: underline; }
+  @media (max-width: 540px) {
+    .hero h1 { font-size: 28px; }
+    h2 { font-size: 19px; }
+    main { padding: 32px 18px 64px; }
+    .nav-links { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a class="brand" href="./">
+      <span class="badge">R</span>
+      Release Pilot
+    </a>
+    <div class="nav-links">
+      <a href="support.html">Support</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="./">Home</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Terms of Service</h1>
+    <div class="meta">
+      <span><strong>Effective:</strong> June 14, 2026</span>
+      <span><strong>Last updated:</strong> June 14, 2026</span>
+    </div>
+  </section>
+
+  <p>These terms govern your use of Release Pilot ("the app", "we", "us"). By installing or using Release Pilot you agree to them. If you don't, please don't use the app.</p>
+
+  <p>This document <strong>supplements</strong> <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" target="_blank" rel="noopener">Apple's standard end-user license agreement</a>, which is the master license for any app distributed via the App Store. Where this document and Apple's standard EULA conflict, Apple's EULA controls.</p>
+
+  <div class="tl-dr">
+    <h2>TL;DR</h2>
+    <ul>
+      <li>Release Pilot is a <strong>read-and-respond client</strong> for your own App Store Connect account. We don't submit your apps, change pricing, or take automated actions.</li>
+      <li>Subscriptions are billed by <strong>Apple</strong>: $4.99/month or $39.99/year, with a 7-day free trial for new subscribers.</li>
+      <li>Cancel anytime in iOS Settings → Subscriptions. Cancellation takes effect at the end of the current billing period.</li>
+      <li>The app is provided <strong>"as is"</strong>. Our total liability is capped at what you've paid us in the last 12 months (or <strong>$0</strong> if you've never paid us).</li>
+      <li>Apple's standard EULA also applies and controls where this document conflicts with it.</li>
+    </ul>
+  </div>
+
+  <h2>1. What Release Pilot is and isn't</h2>
+  <p>Release Pilot is a <strong>read-and-respond client</strong> for your own App Store Connect account. It surfaces release status, sends push notifications, and lets you reply to App Store reviews from your phone.</p>
+  <p>Release Pilot is <strong>not</strong>:</p>
+  <ul>
+    <li>A submission tool — we don't submit your apps for review on your behalf</li>
+    <li>A pricing tool — we don't change prices or tiers</li>
+    <li>An automation tool — every action that affects App Store Connect (a review reply being the main one) is initiated by your explicit tap</li>
+    <li>A guarantee of any kind regarding App Store review outcomes</li>
+  </ul>
+
+  <h2>2. Your account and API key</h2>
+  <p>You are responsible for:</p>
+  <ul>
+    <li>Generating an App Store Connect API key with the correct role (we recommend <strong>App Manager</strong> — anything higher than necessary is over-privileged)</li>
+    <li>Keeping your Apple ID and Apple Developer Program membership in good standing</li>
+    <li>Revoking the API key in App Store Connect when you no longer want Release Pilot to have access (deleting the key in the app does the same thing locally; revoking in ASC ensures it can't be used anywhere)</li>
+  </ul>
+  <p>We are not responsible for actions taken on your App Store Connect account using your own API key, including actions you take through Release Pilot.</p>
+
+  <h2>3. Subscriptions</h2>
+
+  <h3>3.1 Free plan</h3>
+  <p>The free plan is <strong>forever free</strong> and includes:</p>
+  <ul>
+    <li>1 connected App Store Connect account</li>
+    <li>1 app tracked</li>
+    <li>3 pre-submit checklist runs per week</li>
+    <li>2 review replies per month</li>
+    <li>Today tab (without RevenueCat revenue data)</li>
+  </ul>
+  <p>We may change the free-plan limits with <strong>30 days notice</strong> delivered via in-app notice. Any change will apply only to <strong>new</strong> users; existing users keep their original limits.</p>
+
+  <h3>3.2 Pro plan</h3>
+  <p>Release Pilot Pro is sold as an <strong>auto-renewable subscription</strong> through Apple's StoreKit. Two plans are available:</p>
+  <ul>
+    <li><strong>Monthly</strong>: $4.99 / month</li>
+    <li><strong>Yearly</strong>: $39.99 / year (saves ~30% over monthly)</li>
+  </ul>
+  <p>A <strong>7-day free trial</strong> is available to new subscribers. The trial converts to a paid subscription at the end of the 7 days unless you cancel beforehand.</p>
+
+  <h3>3.3 Billing</h3>
+  <p>All billing is handled by <strong>Apple</strong>, not by us. Your payment method, billing cycle, and renewal are managed in iOS Settings → [Your Name] → Subscriptions.</p>
+
+  <h3>3.4 Cancellation</h3>
+  <p>You can cancel anytime in iOS Settings → [Your Name] → Subscriptions → Release Pilot Pro → Cancel Subscription. Cancellation takes effect at the <strong>end of your current billing period</strong> — you keep Pro features until then.</p>
+
+  <h3>3.5 Refunds</h3>
+  <p>Refunds are handled by Apple. To request a refund, go to <a href="https://reportaproblem.apple.com" target="_blank" rel="noopener">reportaproblem.apple.com</a> and select the Release Pilot Pro charge. We have no ability to issue refunds directly.</p>
+
+  <h3>3.6 Pro features</h3>
+  <p>Pro unlocks:</p>
+  <ul>
+    <li>Unlimited connected ASC accounts and apps</li>
+    <li>Push notifications</li>
+    <li>Every app in your Lock Screen widget (free shows 1) and Live Activities</li>
+    <li>RevenueCat integration on the Today tab</li>
+    <li>Unlimited review replies (with templates)</li>
+    <li>Unlimited pre-submit checklist runs</li>
+  </ul>
+  <p>Features available at v1.0 may evolve. We may add, change, or retire individual features with notice. We will not retire a feature that was a primary reason you subscribed without offering a refund of the unused portion of your billing period.</p>
+
+  <h2>4. Acceptable use</h2>
+  <p>You agree not to:</p>
+  <ul>
+    <li>Use Release Pilot to access an App Store Connect account you don't have authorization to access</li>
+    <li>Reverse engineer, decompile, or attempt to extract the source code of the app (beyond what is allowed under applicable open-source licenses for the libraries we use)</li>
+    <li>Use the app to harass, defame, or impersonate any reviewer when replying to App Store reviews</li>
+    <li>Use the app in any way that violates Apple's <a href="https://developer.apple.com/app-store/review/guidelines/" target="_blank" rel="noopener">App Store Review Guidelines</a> or <a href="https://developer.apple.com/programs/license/" target="_blank" rel="noopener">Apple Developer Program License Agreement</a></li>
+  </ul>
+  <p>We may suspend your access to push notifications and RevenueCat features (the only server-side parts of the app) if we discover use that materially violates these terms. We cannot disable the on-device parts of the app remotely — you would need to delete the app to fully stop using it.</p>
+
+  <h2>5. Disclaimers</h2>
+  <p>Release Pilot is provided <strong>"as is"</strong>, without warranty of any kind. To the maximum extent permitted by law, we disclaim all warranties, express or implied, including merchantability, fitness for a particular purpose, and non-infringement.</p>
+  <p>We <strong>cannot guarantee</strong>:</p>
+  <ul>
+    <li>That push notifications will be delivered (APNs is best-effort and Apple may delay or drop notifications)</li>
+    <li>That the app's representation of your App Store Connect data is real-time or always accurate (Apple's API is the source of truth — Release Pilot is a cached read of it)</li>
+    <li>That the pre-submit checklist will catch every reason your app might be rejected (it catches <strong>mechanical</strong> issues; it cannot evaluate Apple's subjective judgment about your app's content, design, or business model)</li>
+  </ul>
+
+  <h2>6. Limitation of liability</h2>
+  <p>To the maximum extent permitted by law, our total liability to you for any claim related to the app is limited to the <strong>amount you've paid us for the app in the 12 months before the claim arose</strong>. If you've never paid us, our total liability is $0.</p>
+  <p>We are not liable for:</p>
+  <ul>
+    <li>Indirect, incidental, special, consequential, or punitive damages</li>
+    <li>Lost revenue, lost profits, or lost data</li>
+    <li>Apple's decisions about your apps (rejections, removals, account terminations)</li>
+  </ul>
+
+  <h2>7. Termination</h2>
+  <p>You may terminate these terms at any time by deleting the app and cancelling any active subscription.</p>
+  <p>We may terminate your access to the server-side features (push notifications and Pro feature unlocking) for material breach of these terms with 7 days notice, unless the breach is fraud or abuse, in which case we may terminate immediately.</p>
+
+  <h2>8. Changes</h2>
+  <p>We may update these terms with at least <strong>30 days notice</strong> delivered via in-app notice or email (if you have provided one). Changes apply prospectively only.</p>
+  <p>If a change materially reduces your rights and you don't accept it, you may cancel your subscription and request a prorated refund through Apple.</p>
+
+  <h2>9. Governing law</h2>
+  <p>These terms are governed by the laws of the State of South Carolina, United States, without regard to conflict-of-law provisions.</p>
+  <p>For disputes:</p>
+  <ul>
+    <li>Small claims may be brought in your local court</li>
+    <li>Other disputes will be resolved by individual arbitration where required by law, otherwise in the state and federal courts located in York County, South Carolina, United States</li>
+    <li>Class actions are waived to the extent permitted by law</li>
+  </ul>
+
+  <h2>10. Contact</h2>
+  <table>
+    <tbody>
+      <tr><th>Email</th><td><a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a></td></tr>
+      <tr><th>Postal address</th><td>728 Balboa Ct, Fort Mill, SC 29715, United States</td></tr>
+    </tbody>
+  </table>
+
+  <h2>11. Apple-specific provisions</h2>
+  <p>Per Apple's standard EULA, the following provisions apply specifically when Release Pilot is licensed via the App Store:</p>
+  <ul>
+    <li><strong>License grant</strong>: Apple grants you a personal, non-transferable license to use Release Pilot on any iOS device that you own or control, in accordance with the Usage Rules in the App Store Terms of Service.</li>
+    <li><strong>License scope</strong>: This license is limited to your use of the app on Apple-branded devices.</li>
+    <li><strong>Maintenance and support</strong>: We (the developer) are solely responsible for any maintenance and support of Release Pilot. Apple has no obligation whatsoever to provide any maintenance or support services.</li>
+    <li><strong>Warranty</strong>: We disclaim all warranties as set out above. If the app fails to conform to any applicable warranty, you may notify Apple, who may refund the purchase price; Apple has no further warranty obligation.</li>
+    <li><strong>Product claims</strong>: We (not Apple) are responsible for addressing any claims by you or any third party relating to Release Pilot.</li>
+    <li><strong>IP claims</strong>: We are responsible for the investigation and defense of any third-party intellectual property claim that Release Pilot infringes.</li>
+    <li><strong>Third-party beneficiary</strong>: Apple and Apple's subsidiaries are third-party beneficiaries of these terms and, upon your acceptance, have the right to enforce them against you.</li>
+  </ul>
+</main>
+
+<footer>
+  <div>
+    <a href="./">Home</a> ·
+    <a href="support.html">Support</a> ·
+    <a href="privacy.html">Privacy</a> ·
+    <a href="mailto:senthil930@gmail.com">Email</a>
+  </div>
+  <div style="margin-top:8px">&copy; <span id="year"></span> Release Pilot. Built by an indie iOS developer.</div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+
+</body>
+</html>
