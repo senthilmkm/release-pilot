@@ -398,12 +398,14 @@
           <td class="area">Release</td>
           <td class="status"><span class="badge b-inprog">In progress</span></td>
           <td class="note">
-            Four commits on <code>main</code> waiting on v1.0 approval before shipping (either bundled into a v1.0.1 EAS build or OTA'd):
+            Commits on <code>main</code> waiting on v1.0 approval before shipping (either bundled into a v1.0.1 EAS build or OTA'd):
             <ul style="margin: 6px 0 0 0; padding-left: 18px;">
               <li><strong>Checklist 15 &rarr; 17 rules</strong> &mdash; catches the missing-price-tier + missing-territory rejection (OTA-able).</li>
               <li><strong>Sticky daily 'State changes' counter</strong> &mdash; baseline anchored at 7am local so multi-app changes accumulate through the day instead of resetting on tab re-open (OTA-able).</li>
+              <li><strong>Today tab hero subtitle</strong> &mdash; "Since 7:00 AM &middot; resets each morning" caption so the 'State changes' metric is unambiguous (OTA-able).</li>
+              <li><strong>Paywall Terms link URL</strong> &mdash; points at the custom hosted Terms instead of Apple's generic stdeula, matching the App Store Description (OTA-able).</li>
               <li><strong>Lock-Screen circular widget label</strong> &mdash; LIVE&nbsp;&rarr;&nbsp;WIP with a checkmark when count is 0 (native, requires EAS build).</li>
-              <li><strong>Planning docs</strong> &mdash; progressive app picker design + App Preview production plan (not bundled, repo-only).</li>
+              <li><strong>Planning docs + Terms hosting</strong> &mdash; progressive app picker design, App Preview production plan, docs/terms.html on GitHub Pages (not bundled, repo / static-site only).</li>
             </ul>
           </td>
         </tr>

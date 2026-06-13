@@ -69,7 +69,7 @@ const FEATURE_BULLETS = [
   'Connect every App Store Connect team',
 ] as const;
 
-const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const TERMS_URL = 'https://senthilmkm.github.io/release-pilot/terms.html';
 const PRIVACY_URL = 'https://senthilmkm.github.io/release-pilot/privacy.html';
 
 function goBackOrHome(): void {
