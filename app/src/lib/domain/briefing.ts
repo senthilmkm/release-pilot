@@ -13,8 +13,9 @@ import type { RevenueCatOverview } from '@/lib/api/revenuecat-types';
  *   - The previous briefing's snapshot (for delta computation)
  *
  * OUTPUT: a fully-projected `Briefing` ready to render, plus a fresh
- * `BriefingSnapshot` to persist so tomorrow's briefing can compute
- * deltas from it.
+ * `BriefingSnapshot` representing the current world. The CALLER decides
+ * when (if ever) to persist this snapshot as the new daily baseline —
+ * see `briefing-snapshot-store.ts` for the 7am-anchored rotation rule.
  *
  * Design rules:
  *   - 100% pure / deterministic. No I/O. Easy to unit-test.
@@ -47,12 +48,17 @@ export type BriefingInputs = {
 };
 
 // ---------------------------------------------------------------------------
-// Persisted snapshot — minimal data needed to compute deltas tomorrow
+// Persisted snapshot — daily baseline against which deltas are computed
 // ---------------------------------------------------------------------------
 
 export type BriefingSnapshot = {
+  /**
+   * Wall-clock timestamp (ms since epoch) at which this snapshot was
+   * captured. The snapshot store uses this to detect when the daily
+   * 7am-local window has rolled over and a fresh baseline is needed.
+   */
   atMs: number;
-  /** Map of ascAppId → semantic state at the time of last briefing. */
+  /** Map of ascAppId → semantic state at the time the baseline was taken. */
   statesByAppId: Record<string, SemanticState>;
   /**
    * For each app, the set of review IDs we'd already seen at last

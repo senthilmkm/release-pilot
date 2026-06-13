@@ -29,6 +29,7 @@ import {
   type Briefing,
 } from '@/lib/domain/briefing';
 import {
+  isSnapshotStaleForToday,
   loadLastBriefingSnapshot,
   saveBriefingSnapshot,
 } from '@/lib/domain/briefing-snapshot-store';
@@ -42,10 +43,15 @@ import { StateBadge } from '@/components/state-badge';
  *  1. Reuse the same hooks the other tabs use (apps + states + reviews)
  *     so opening Briefing after Releases is instant (cache hit).
  *  2. Add `useRevenueOverviewsQuery` for RC-connected apps.
- *  3. Read the persisted snapshot from MMKV synchronously.
- *  4. Run the pure `buildBriefing` aggregator.
- *  5. Save the freshly computed snapshot so tomorrow's deltas compute
- *     against THIS render's state.
+ *  3. Read the persisted baseline snapshot from MMKV synchronously.
+ *  4. Decide if the baseline is still valid for "today's window" (i.e.
+ *     was saved at or after the most recent 7am local). If stale, treat
+ *     it as a one-shot baseline for THIS render and rotate it afterwards.
+ *  5. Run the pure `buildBriefing` aggregator.
+ *  6. Persist a fresh baseline ONLY when we just rotated. Mid-day
+ *     re-opens leave the baseline alone, so multi-app state changes
+ *     accumulate naturally throughout the day (counter never silently
+ *     resets just because the user opened the tab).
  *
  * Render: a hero summary card, then per-app cards sorted by priority.
  * No revenue connected? The card shows a "Connect RevenueCat" CTA so
@@ -62,15 +68,26 @@ export default function BriefingTab() {
   const rcQuery = useRevenueOverviewsQuery();
   const rcMeta = useAppRevenueCatStore((s) => s.byAscAppId);
 
-  // Synchronously hydrate the previous snapshot once (MMKV is synchronous).
-  const [previousSnapshot] = useState(() => loadLastBriefingSnapshot());
-
   // Capture the "now" timestamp once at mount. `useState` with a lazy
   // initializer is the canonical way to do this — `Date.now()` runs
   // exactly once, never on re-render. Using `useRef.current` is also
   // workable but the React Compiler (correctly) flags ref reads in
   // render, and useState is purpose-built for this.
   const [nowMs] = useState(() => Date.now());
+
+  // Synchronously hydrate the previous baseline once (MMKV is sync).
+  const [persistedSnapshot] = useState(() => loadLastBriefingSnapshot());
+
+  // Daily-window check: is the persisted baseline still inside today's
+  // briefing window (post-7am-local), or did the day roll over since
+  // it was saved? When stale, we still USE it as the comparison source
+  // for THIS render (so the user sees what changed since yesterday)
+  // and then rotate to a fresh baseline in the effect below.
+  const baselineStale = useMemo(
+    () => isSnapshotStaleForToday(persistedSnapshot, nowMs),
+    [persistedSnapshot, nowMs],
+  );
+  const previousSnapshot = persistedSnapshot;
 
   const reviewsByAppId = useMemo(() => {
     const m = new Map<string, ReviewSummary[]>();
@@ -109,13 +126,19 @@ export default function BriefingTab() {
     ],
   );
 
-  // Side-effect: persist tomorrow's snapshot baseline. We do this in an
-  // effect (not render) so MMKV writes aren't doubled by Strict Mode in
-  // dev. Stable snapshot reference from useMemo means this only fires
-  // when the briefing actually changes.
+  // Side-effect: rotate the persisted baseline ONLY when the day has
+  // rolled over (or there was no baseline at all). Mid-day re-opens
+  // intentionally leave the existing baseline untouched so multi-app
+  // state changes accumulate over the course of a day instead of
+  // resetting to 0 every time the tab is opened.
+  //
+  // We do this in an effect (not render) so MMKV writes aren't doubled
+  // by Strict Mode in dev.
   useEffect(() => {
-    saveBriefingSnapshot(nextSnapshot);
-  }, [nextSnapshot]);
+    if (baselineStale) {
+      saveBriefingSnapshot(nextSnapshot);
+    }
+  }, [baselineStale, nextSnapshot]);
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = async () => {
