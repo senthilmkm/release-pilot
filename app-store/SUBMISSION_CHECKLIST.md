@@ -21,12 +21,22 @@ Print this. Cross off each line as you do it. Do not skip — the items are orde
   - Hosted via GitHub Pages from `docs/support.html`
   - Verified live (HTTP 200) — has email contact + how-to sections
   - Apple requires `https://` (not `mailto:`) — this satisfies that
-- [ ] **Terms of Use URL is set in the Subscription Group EULA field** at `https://senthilmkm.github.io/release-pilot/terms.html`
-  - Hosted via GitHub Pages from `docs/terms.html` (committed alongside this row)
-  - After pushing, verify the page loads: open the URL in a browser → should render the Terms with the same styling as `privacy.html`
-  - In App Store Connect → Subscriptions → tap the subscription group (e.g. `release_pilot_pro`) → App Store Information → scroll to the **Custom EULA** section → paste the Terms URL there
-  - Without this, Apple defaults to their standard EULA — which is legal but means your South Carolina governing-law clause, your refund pointer, and your 30-day notice for plan changes have no binding URL
-  - Apple sometimes also exposes a "License Agreement" field at the **app level** (App Information → App Store → License Agreement) — paste the same URL there too for belt-and-suspenders coverage
+- [x] **Terms of Use page is hosted** at `https://senthilmkm.github.io/release-pilot/terms.html`
+  - Hosted via GitHub Pages from `docs/terms.html`
+  - Verified live after GitHub Pages publishes (HTTP 200)
+- [ ] **Terms of Use link is appended to the App Description** (Apple Guideline 3.1.2 — REQUIRED for subscription apps)
+  - **IMPORTANT**: There is **no URL field in ASC for a custom EULA**. The License Agreement field at App Information → General Information is a plain-text field (10K chars, HTML stripped), NOT a URL. My earlier instruction pointing at a "Subscription Group → Custom EULA URL" field was wrong — that field does not exist in App Store Connect.
+  - Because `TERMS_OF_SERVICE.md` is written as a **supplement** to Apple's standard EULA (not a replacement), the correct path is to **keep Apple's standard EULA** and **add the Terms URL as text in the App Description**.
+  - Steps:
+    1. App Store Connect → [Release Pilot] → click into your **v1.0 version page** (NOT the App Information page — the version page that shows "Prepare for Submission") → Description
+    2. Append these two lines on their own paragraph at the bottom of the description:
+       ```
+       Terms of Use: https://senthilmkm.github.io/release-pilot/terms.html
+       Privacy Policy: https://senthilmkm.github.io/release-pilot/privacy.html
+       ```
+    3. Save
+  - This satisfies the "functional link to Terms of Use" requirement in Guideline 3.1.2 alongside the Privacy Policy URL field (which is already set in App Information).
+  - In-app: paywall already shows both Terms and Privacy links — this completes the three required surfaces (App Description text + Privacy URL field + in-app paywall).
 - [x] **Account deletion path is functional**
   - Single button: More → DANGER ZONE → Erase all data
   - Wipes Keychain (.p8s + RC secrets), SQLite, MMKV, scheduled notifications, RevenueCat subscriber alias, worker push registration, and the widget App Group
