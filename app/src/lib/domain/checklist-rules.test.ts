@@ -1,7 +1,9 @@
 import {
+  analyzeKeywords,
   pickPrimaryLocalization,
   runChecklist,
   RULE_COUNT,
+  singularize,
   summarizeChecklist,
   type ChecklistContext,
 } from './checklist-rules';
@@ -134,10 +136,18 @@ function makeCtx(over: Partial<ChecklistContext> = {}): ChecklistContext {
     version: over.version === undefined ? makeVersion() : over.version,
     build: over.build === undefined ? makeBuild('29') : over.build,
     localizations: over.localizations ?? [
+      // Clean keyword field for the default fixture so the 4 keyword-linter
+      // rules (added v1.0.1) pass on a "happy path" ctx:
+      //  - no spaces between commas (saves chars)
+      //  - no token overlapping with default name "Release Pilot" or
+      //    subtitle "Indie iOS dev companion"
+      //  - all singular forms (Apple stems plurals automatically)
+      // Tests that exercise the linter override `localizations` to flip
+      // each property in isolation.
       makeLoc({
         locale: 'en-US',
         description: 'A high-quality app that does great things and helps users every day.',
-        keywords: 'memory, journal, recall',
+        keywords: 'memory,journal,recall,note,reminder,location,search,offline,backup,sync',
         supportUrl: 'https://example.com/support',
         marketingUrl: 'https://example.com',
         whatsNew: 'Fixed bugs',
@@ -178,19 +188,24 @@ function ruleById(results: ReturnType<typeof runChecklist>, id: string) {
 // RULE_COUNT / runChecklist baseline
 // ---------------------------------------------------------------------------
 
-ok('exposes 17 rules',           RULE_COUNT === 17);
-ok('runChecklist returns 17',    runChecklist(makeCtx()).length === 17);
+ok('exposes 22 rules',           RULE_COUNT === 22);
+ok('runChecklist returns 22',    runChecklist(makeCtx()).length === 22);
 
 // Happy path: a clean draft + complete app metadata + all-ready subs +
-// configured price + selected territories should produce 15 pass + 2
-// unknown (encryption + app-privacy-details — both are dashboard-only
-// and always unknown). No warns, no fails.
+// configured price + selected territories + clean keyword field (4
+// keyword-linter rules added v1.0.1) should produce:
+//   - 19 pass (was 18 pre-subtitle rule)
+//   - 2 unknown (encryption + app-privacy-details — always dashboard-only)
+//   - 1 na (keyword-locale-coverage — happy ctx has only 1 locale)
+// No warns, no fails.
 {
   const results = runChecklist(makeCtx());
   const summary = summarizeChecklist(results);
-  ok('happy path: 15 pass + 2 unknown', summary.pass === 15 && summary.unknown === 2);
+  ok('happy path: 19 pass + 2 unknown + 1 na',
+    summary.pass === 19 && summary.unknown === 2 && summary.na === 1);
   ok('happy path: overallSeverity = unknown (no warn/fail)', summary.overallSeverity === 'unknown');
 }
+
 
 // ---------------------------------------------------------------------------
 // pickPrimaryLocalization
@@ -314,6 +329,227 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 {
   const r = ruleById(runChecklist(makeCtx({ localizations: [makeLoc({ keywords: 'a'.repeat(100) })] })), 'keywords');
   ok('keywords: exactly 100 → pass', r?.severity === 'pass');
+}
+
+// ---------------------------------------------------------------------------
+// analyzeKeywords (pure helper backing all 4 keyword-linter rules)
+// ---------------------------------------------------------------------------
+
+{
+  const a = analyzeKeywords({ keywords: '' });
+  ok('analyze: blank → no tokens, no waste',
+    a.tokens.length === 0 && a.wastedSpaceChars === 0 && a.totalChars === 0);
+}
+{
+  const a = analyzeKeywords({ keywords: 'memory,journal,recall' });
+  ok('analyze: clean comma-separated → no waste, 3 tokens',
+    a.tokens.length === 3 && a.wastedSpaceChars === 0);
+  ok('analyze: clean → effectiveChars === totalChars',
+    a.effectiveChars === a.totalChars);
+}
+{
+  // "memory, journal, recall" — 2 wasted chars on the spaces after commas
+  const a = analyzeKeywords({ keywords: 'memory, journal, recall' });
+  ok('analyze: spaces after commas → wastedSpaceChars counted',
+    a.wastedSpaceChars === 2);
+  ok('analyze: token trimming strips leading whitespace',
+    a.tokens.includes('journal') && a.tokens.includes('recall'));
+}
+{
+  const a = analyzeKeywords({
+    keywords: 'release,pilot,memory,journal,asc',
+    name: 'Release Pilot',
+    subtitle: 'Indie iOS dev companion',
+  });
+  ok('analyze: duplicate-with-name detected (case-insensitive)',
+    a.duplicatesWithName.includes('release') && a.duplicatesWithName.includes('pilot'));
+  ok('analyze: clean token unrelated to name passes through',
+    !a.duplicatesWithName.includes('memory'));
+}
+{
+  const a = analyzeKeywords({
+    keywords: 'companion,dev,asc,memory',
+    name: 'Release Pilot',
+    subtitle: 'Indie iOS dev companion',
+  });
+  ok('analyze: duplicate-with-subtitle detected',
+    a.duplicatesWithSubtitle.includes('companion') && a.duplicatesWithSubtitle.includes('dev'));
+}
+{
+  const a = analyzeKeywords({ keywords: 'notes,tasks,reminders,ios,news,business,note' });
+  ok('analyze: plurals detected (notes/tasks/reminders)',
+    a.likelyPlurals.includes('notes') &&
+    a.likelyPlurals.includes('tasks') &&
+    a.likelyPlurals.includes('reminders'));
+  ok('analyze: safelist protects ios / news / business',
+    !a.likelyPlurals.includes('ios') &&
+    !a.likelyPlurals.includes('news') &&
+    !a.likelyPlurals.includes('business'));
+  ok('analyze: singular tokens not flagged',
+    !a.likelyPlurals.includes('note'));
+}
+{
+  // -ss endings (pass / boss / class) shouldn't trigger plurals even
+  // outside the explicit safelist.
+  const a = analyzeKeywords({ keywords: 'sass,brass,toss' });
+  ok('analyze: -ss endings ignored (not plurals)',
+    a.likelyPlurals.length === 0);
+}
+{
+  const a = analyzeKeywords({ keywords: 'app,journal,bus,ts' });
+  ok('analyze: tokens shorter than 4 chars not flagged as plurals',
+    !a.likelyPlurals.includes('bus') && !a.likelyPlurals.includes('ts'));
+}
+
+// singularize (used in remediation copy)
+ok('singularize: notes → note',     singularize('notes') === 'note');
+ok('singularize: stories → story',  singularize('stories') === 'story');
+ok('singularize: matches → match',  singularize('matches') === 'match');
+ok('singularize: idempotent on singular', singularize('note') === 'note');
+
+// ---------------------------------------------------------------------------
+// ruleKeywordSpaces (v1.0.1)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ localizations: [makeLoc({ keywords: 'memory, journal, recall' })] })), 'keyword-spaces');
+  ok('keyword-spaces: spaces after commas → warn', r?.severity === 'warn');
+  ok('keyword-spaces: warn message names the count',
+    typeof r?.message === 'string' && r.message.includes('2 character'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ localizations: [makeLoc({ keywords: 'memory,journal,recall' })] })), 'keyword-spaces');
+  ok('keyword-spaces: no spaces → pass', r?.severity === 'pass');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ localizations: [makeLoc({ keywords: '' })] })), 'keyword-spaces');
+  // Blank keywords are flagged by the base `keywords` rule; this rule
+  // stays silent (na) so the UI doesn't double-up the same advice.
+  ok('keyword-spaces: blank keywords → na (base rule already covers it)',
+    r?.severity === 'na');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ version: null, build: null, localizations: [] })), 'keyword-spaces');
+  ok('keyword-spaces: no draft → na', r?.severity === 'na');
+}
+
+// ---------------------------------------------------------------------------
+// ruleKeywordDuplicates (v1.0.1)
+// ---------------------------------------------------------------------------
+
+{
+  // Default ctx has name "Release Pilot" + subtitle "Indie iOS dev companion".
+  // Pollute the keyword field with overlap.
+  const r = ruleById(runChecklist(makeCtx({
+    localizations: [makeLoc({ keywords: 'release,pilot,memory,journal' })],
+  })), 'keyword-duplicates');
+  ok('keyword-duplicates: overlap with name → warn', r?.severity === 'warn');
+  ok('keyword-duplicates: warn message names a duplicate token',
+    typeof r?.message === 'string' &&
+    (r.message.includes('"release"') || r.message.includes('"pilot"')));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    localizations: [makeLoc({ keywords: 'companion,dev,memory,journal' })],
+  })), 'keyword-duplicates');
+  ok('keyword-duplicates: overlap with subtitle → warn', r?.severity === 'warn');
+}
+{
+  const r = ruleById(runChecklist(makeCtx()), 'keyword-duplicates');
+  ok('keyword-duplicates: clean fixture → pass', r?.severity === 'pass');
+}
+{
+  // appInfoLocalization unavailable (403 on listAppInfos, for example)
+  // → degrade to unknown, NOT fail. False fail would scare the user.
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: null })), 'keyword-duplicates');
+  ok('keyword-duplicates: no appInfoLocalization → unknown',
+    r?.severity === 'unknown');
+  ok('keyword-duplicates: unknown carries app-info deep link',
+    typeof r?.ascDeepLink === 'string' && r.ascDeepLink.includes('appstore/info'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ localizations: [makeLoc({ keywords: '' })] })), 'keyword-duplicates');
+  ok('keyword-duplicates: blank keywords → na', r?.severity === 'na');
+}
+
+// ---------------------------------------------------------------------------
+// ruleKeywordPlurals (v1.0.1)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({
+    localizations: [makeLoc({ keywords: 'notes,tasks,reminders,memory' })],
+  })), 'keyword-plurals');
+  ok('keyword-plurals: obvious plurals → warn', r?.severity === 'warn');
+  ok('keyword-plurals: warn message shows stemmed form',
+    typeof r?.message === 'string' && r.message.includes('note'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx()), 'keyword-plurals');
+  ok('keyword-plurals: clean singular fixture → pass', r?.severity === 'pass');
+}
+{
+  // iOS / news / business etc. should NOT trigger plurals (safelist).
+  const r = ruleById(runChecklist(makeCtx({
+    localizations: [makeLoc({ keywords: 'ios,news,business,memory' })],
+  })), 'keyword-plurals');
+  ok('keyword-plurals: safelist tokens → pass', r?.severity === 'pass');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ localizations: [makeLoc({ keywords: '' })] })), 'keyword-plurals');
+  ok('keyword-plurals: blank keywords → na', r?.severity === 'na');
+}
+
+// ---------------------------------------------------------------------------
+// ruleKeywordLocaleCoverage (v1.0.1)
+// ---------------------------------------------------------------------------
+
+{
+  // Default fixture has only en-US — coverage is na (no gap possible).
+  const r = ruleById(runChecklist(makeCtx()), 'keyword-locale-coverage');
+  ok('keyword-locale-coverage: 1 locale → na', r?.severity === 'na');
+}
+{
+  // Three locales — fr-FR has a description but no keywords (gap).
+  const r = ruleById(runChecklist(makeCtx({
+    localizations: [
+      makeLoc({ id: 'en', locale: 'en-US', description: 'desc', keywords: 'a,b,c' }),
+      makeLoc({ id: 'fr', locale: 'fr-FR', description: 'desc', keywords: '' }),
+      makeLoc({ id: 'de', locale: 'de-DE', description: 'desc', keywords: 'a,b,c' }),
+    ],
+  })), 'keyword-locale-coverage');
+  ok('keyword-locale-coverage: gap on fr-FR → warn', r?.severity === 'warn');
+  ok('keyword-locale-coverage: warn message names the locale',
+    typeof r?.message === 'string' && r.message.includes('fr-FR'));
+}
+{
+  // Locale with NO description is treated as inactive — no warning.
+  const r = ruleById(runChecklist(makeCtx({
+    localizations: [
+      makeLoc({ id: 'en', locale: 'en-US', description: 'desc', keywords: 'a,b,c' }),
+      makeLoc({ id: 'fr', locale: 'fr-FR', description: '',     keywords: '' }),
+    ],
+  })), 'keyword-locale-coverage');
+  ok('keyword-locale-coverage: inactive locale (no desc) → pass',
+    r?.severity === 'pass');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    localizations: [
+      makeLoc({ id: 'en', locale: 'en-US', description: 'desc', keywords: 'a,b,c' }),
+      makeLoc({ id: 'fr', locale: 'fr-FR', description: 'desc', keywords: 'd,e,f' }),
+      makeLoc({ id: 'de', locale: 'de-DE', description: 'desc', keywords: 'g,h,i' }),
+    ],
+  })), 'keyword-locale-coverage');
+  ok('keyword-locale-coverage: all locales filled → pass', r?.severity === 'pass');
+}
+
+// Cross-rule sanity: the 4 linter rules should leave the BASE
+// `keywords` rule's pass/fail behavior unchanged.
+{
+  const r = ruleById(runChecklist(makeCtx()), 'keywords');
+  ok('regression: linter rules don\'t break base keywords rule',
+    r?.severity === 'pass');
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +719,39 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 {
   const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ privacyPolicyUrl: 'https://releasepilot.app/privacy' }) })), 'privacy-policy-url');
   ok('privacy-url: valid → pass', r?.severity === 'pass');
+}
+
+// ---------------------------------------------------------------------------
+// ruleSubtitle (app-level)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfo: null })), 'subtitle');
+  ok('subtitle: no appInfo → unknown', r?.severity === 'unknown');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: null })), 'subtitle');
+  ok('subtitle: no localization → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ subtitle: undefined }) })), 'subtitle');
+  ok('subtitle: missing → warn', r?.severity === 'warn');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ subtitle: 'a'.repeat(31) }) })), 'subtitle');
+  ok('subtitle: over 30 chars → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ subtitle: 'App Store Connect companion' }) })), 'subtitle');
+  ok('subtitle: contains "App Store Connect" → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ subtitle: 'Pineapple recipes' }) })), 'subtitle');
+  ok('subtitle: contains "apple" but inside another word → pass', r?.severity === 'pass');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfoLocalization: makeAppInfoLoc({ subtitle: 'Track apps, reviews & MRR' }) })), 'subtitle');
+  ok('subtitle: valid and safe → pass', r?.severity === 'pass');
 }
 
 // ---------------------------------------------------------------------------
@@ -784,7 +1053,6 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
     ],
   });
   const results = runChecklist(ctx);
-  const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
   ok('drift: surfaces only the broken subs rule',
     nonNaNonPass.length === 1 && nonNaNonPass[0]?.id === 'subscription-products');
@@ -793,7 +1061,7 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
 
 {
   // Partial API failure during app-level fetch (e.g., 403 on listAppInfos
-  // but getApp + subscriptionGroups succeeded). The 2 appInfo-derived
+  // but getApp + subscriptionGroups succeeded). The 3 appInfo-derived
   // rules degrade to unknown — we want them surfaced so the user can
   // verify manually in ASC.
   const ctx = makeCtx({
@@ -808,10 +1076,10 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
   const results = runChecklist(ctx);
   const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
-  ok('partial API-fail: surfaces the 2 unknown rows for manual verify',
-    nonNaNonPass.length === 2 && nonNaNonPass.every((r) => r.severity === 'unknown'));
-  ok('partial API-fail: summary.unknown === 2',
-    summary.unknown === 2 && summary.hasDraft === false);
+  ok('partial API-fail: surfaces the 3 unknown rows for manual verify',
+    nonNaNonPass.length === 3 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('partial API-fail: summary.unknown === 3',
+    summary.unknown === 3 && summary.hasDraft === false);
 }
 
 {
@@ -833,10 +1101,10 @@ ok('pickPrimary: empty → null', pickPrimaryLocalization([]) === null);
   const results = runChecklist(ctx);
   const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
-  ok('full API-fail: surfaces 6 unknowns (content + category + privacy + subs + price + availability)',
-    nonNaNonPass.length === 6 && nonNaNonPass.every((r) => r.severity === 'unknown'));
-  ok('full API-fail: summary.unknown === 6',
-    summary.unknown === 6);
+  ok('full API-fail: surfaces 7 unknowns (content + category + subtitle + privacy + subs + price + availability)',
+    nonNaNonPass.length === 7 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('full API-fail: summary.unknown === 7',
+    summary.unknown === 7);
 }
 
 // ---------------------------------------------------------------------------

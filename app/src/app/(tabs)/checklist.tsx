@@ -125,21 +125,6 @@ export default function ChecklistTab() {
     wasFetching.current = checklist.isFetching;
   }, [checklist.isFetching, checklist.isError, checklist.data]);
 
-  // No accounts → onboarding hand-off
-  if (accounts.length === 0) {
-    return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
-        <Header palette={palette} />
-        <EmptyState
-          icon={AppWindow}
-          title="No accounts connected"
-          body="Connect an App Store Connect API key to run pre-submit checks."
-          cta={{ label: 'Connect an account', onPress: () => router.push('/(onboarding)/why-asc') }}
-        />
-      </SafeAreaView>
-    );
-  }
-
   const summary = checklist.data
     ? summarizeChecklist(checklist.data.results, checklist.data.ctx)
     : null;
@@ -165,6 +150,22 @@ export default function ChecklistTab() {
       (r) => r.severity !== 'na' && r.severity !== 'pass',
     );
   }, [checklist.data, hasNoDraft]);
+
+  // No accounts → onboarding hand-off
+  if (accounts.length === 0) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
+        <Header palette={palette} />
+        <EmptyState
+          icon={AppWindow}
+          title="No accounts connected"
+          body="Connect an App Store Connect API key to run pre-submit checks."
+          cta={{ label: 'Connect an account', onPress: () => router.push('/(onboarding)/why-asc') }}
+        />
+      </SafeAreaView>
+    );
+  }
+
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
