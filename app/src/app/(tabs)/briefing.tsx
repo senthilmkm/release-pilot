@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   DollarSign,
+  HelpCircle,
   MessageSquare,
   Sunrise,
   TrendingUp,
@@ -35,6 +36,7 @@ import {
 } from '@/lib/domain/briefing-snapshot-store';
 import type { ReviewSummary } from '@/lib/domain/review-feed';
 import { StateBadge } from '@/components/state-badge';
+import { MetricsHelpModal } from '@/features/briefing/metrics-help-modal';
 
 /**
  * Daily Briefing tab — the "one screen that replaces 4 dashboards".
@@ -169,6 +171,10 @@ export default function BriefingTab() {
   const gate = usePaywallGate();
   const [rcBannerDismissed, setRcBannerDismissed] = useState(() => isRcBannerDismissed());
   const showRcBanner = apps.length > 0 && noRcConnected && !rcBannerDismissed;
+
+  const [metricsHelpVisible, setMetricsHelpVisible] = useState(false);
+  const openMetricsHelp = useCallback(() => setMetricsHelpVisible(true), []);
+  const closeMetricsHelp = useCallback(() => setMetricsHelpVisible(false), []);
   const onDismissRcBanner = useCallback(() => {
     dismissRcBanner();
     setRcBannerDismissed(true);
@@ -228,6 +234,12 @@ export default function BriefingTab() {
               key={card.ascAppId}
               card={card}
               hasRcConnected={Boolean(rcMeta[card.ascAppId]?.verified)}
+              revenueLoading={
+                Boolean(rcMeta[card.ascAppId]?.verified) &&
+                !rcQuery.byAppId.has(card.ascAppId) &&
+                (rcQuery.isLoading || rcQuery.isFetching)
+              }
+              onOpenMetricsHelp={openMetricsHelp}
             />
           ))
         )}
@@ -242,6 +254,8 @@ export default function BriefingTab() {
           </View>
         )}
       </ScrollView>
+
+      <MetricsHelpModal visible={metricsHelpVisible} onDismiss={closeMetricsHelp} />
     </SafeAreaView>
   );
 }
@@ -472,9 +486,13 @@ function HeroStat({ icon, value, label }: { icon: React.ReactNode; value: string
 function AppCard({
   card,
   hasRcConnected,
+  revenueLoading,
+  onOpenMetricsHelp,
 }: {
   card: AppBriefingCard;
   hasRcConnected: boolean;
+  revenueLoading: boolean;
+  onOpenMetricsHelp: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -580,6 +598,7 @@ function AppCard({
               label="Active users (28d)"
               value={formatCompactNumber(card.revenue.activeUsersLast28Days)}
               stale={card.revenue.stale}
+              onHelpPress={onOpenMetricsHelp}
             />
             <RevenueStat
               label="New customers (28d)"
@@ -593,6 +612,18 @@ function AppCard({
             />
           </View>
         </>
+      ) : hasRcConnected ? (
+        <View
+          style={[
+            styles.connectRcRow,
+            { backgroundColor: palette.backgroundSelected },
+          ]}
+        >
+          <DollarSign size={14} color={palette.textTertiary} strokeWidth={2.4} />
+          <ThemedText style={[TypeScale.footnote, { color: palette.textTertiary, flex: 1 }]}>
+            {revenueLoading ? 'Loading RevenueCat…' : 'Revenue temporarily unavailable'}
+          </ThemedText>
+        </View>
       ) : (
         <Pressable
           accessibilityRole="button"
@@ -633,14 +664,13 @@ function AppCard({
         </Pressable>
       )}
 
-      {hasRcConnected &&
-        card.revenue.connected === false /* should not happen if data load failed cleanly */ && (
-          <ThemedText
-            style={[TypeScale.caption, { color: palette.destructive, marginTop: Spacing.one }]}
-          >
-            Revenue temporarily unavailable.
-          </ThemedText>
-        )}
+      {hasRcConnected && !revenueLoading && card.revenue.connected === false && (
+        <ThemedText
+          style={[TypeScale.caption, { color: palette.destructive, marginTop: Spacing.one }]}
+        >
+          Check the More tab to update the RevenueCat key.
+        </ThemedText>
+      )}
     </Pressable>
   );
 }
@@ -653,7 +683,17 @@ function ProInlineBadge({ palette }: { palette: typeof Colors.light | typeof Col
   );
 }
 
-function RevenueStat({ label, value, stale }: { label: string; value: string; stale: boolean }) {
+function RevenueStat({
+  label,
+  value,
+  stale,
+  onHelpPress,
+}: {
+  label: string;
+  value: string;
+  stale: boolean;
+  onHelpPress?: () => void;
+}) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
   return (
@@ -664,13 +704,29 @@ function RevenueStat({ label, value, stale }: { label: string; value: string; st
       >
         {value}
       </ThemedText>
-      <ThemedText
-        style={[TypeScale.caption, { color: palette.textTertiary }]}
-        numberOfLines={1}
-      >
-        {label}
-        {stale ? ' (cached)' : ''}
-      </ThemedText>
+      <View style={styles.revenueStatLabelRow}>
+        <ThemedText
+          style={[TypeScale.caption, styles.revenueStatLabel, { color: palette.textTertiary }]}
+          numberOfLines={1}
+        >
+          {label}
+          {stale ? ' (cached)' : ''}
+        </ThemedText>
+        {onHelpPress && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`About ${label}`}
+            accessibilityHint="Explains how this metric is calculated and why it may differ from RevenueCat's dashboard"
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onHelpPress();
+            }}
+            hitSlop={10}
+          >
+            <HelpCircle size={12} color={palette.textTertiary} strokeWidth={2.2} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -861,6 +917,14 @@ const styles = StyleSheet.create({
   revenueStat: {
     flex: 1,
     gap: 2,
+  },
+  revenueStatLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  revenueStatLabel: {
+    flexShrink: 1,
   },
   connectRcRow: {
     flexDirection: 'row',
