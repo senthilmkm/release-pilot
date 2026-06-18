@@ -796,6 +796,10 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
 // ---------------------------------------------------------------------------
 
 {
+  const r = ruleById(runChecklist(makeCtx({ version: null, build: null })), 'age-rating');
+  ok('age-rating: no editable draft → na', r?.severity === 'na');
+}
+{
   const r = ruleById(runChecklist(makeCtx({ appInfo: null })), 'age-rating');
   ok('age-rating: no appInfo → unknown', r?.severity === 'unknown');
 }
@@ -1148,7 +1152,7 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
 
 {
   // Partial API failure during app-level fetch (e.g., 403 on listAppInfos
-  // but getApp + subscriptionGroups succeeded). The 4 appInfo-derived
+  // but getApp + subscriptionGroups succeeded). The 3 appInfo-derived
   // rules degrade to unknown — we want them surfaced so the user can
   // verify manually in ASC.
   const ctx = makeCtx({
@@ -1163,10 +1167,10 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
   const results = runChecklist(ctx);
   const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
-  ok('partial API-fail: surfaces the 4 unknown rows for manual verify',
-    nonNaNonPass.length === 4 && nonNaNonPass.every((r) => r.severity === 'unknown'));
-  ok('partial API-fail: summary.unknown === 4',
-    summary.unknown === 4 && summary.hasDraft === false);
+  ok('partial API-fail: surfaces the 3 unknown rows for manual verify',
+    nonNaNonPass.length === 3 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('partial API-fail: summary.unknown === 3',
+    summary.unknown === 3 && summary.hasDraft === false);
 }
 
 {
@@ -1188,10 +1192,10 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
   const results = runChecklist(ctx);
   const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
-  ok('full API-fail: surfaces 8 unknowns (content + appInfo rules + subs + price + availability)',
-    nonNaNonPass.length === 8 && nonNaNonPass.every((r) => r.severity === 'unknown'));
-  ok('full API-fail: summary.unknown === 8',
-    summary.unknown === 8);
+  ok('full API-fail: surfaces 7 unknowns (content + appInfo rules + subs + price + availability)',
+    nonNaNonPass.length === 7 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('full API-fail: summary.unknown === 7',
+    summary.unknown === 7);
 }
 
 // ---------------------------------------------------------------------------

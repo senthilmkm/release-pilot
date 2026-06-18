@@ -1203,6 +1203,14 @@ const ruleSubtitle = (ctx: ChecklistContext): RuleResult => {
 };
 
 const ruleAgeRatingDeclaration = (ctx: ChecklistContext): RuleResult => {
+  if (!ctx.version) {
+    return {
+      id: 'age-rating',
+      title: 'Age Rating details completed',
+      severity: 'na',
+      message: 'No editable draft — Age Rating can only be changed while preparing a new version.',
+    };
+  }
   if (!ctx.appInfo) {
     return {
       id: 'age-rating',
