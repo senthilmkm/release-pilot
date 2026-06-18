@@ -445,6 +445,7 @@ export function useSubmitReplyMutation() {
  *  - version localizations + screenshot sets
  *  - the App entity (for `contentRightsDeclaration`)
  *  - App Infos + categories + AppInfoLocalizations (category + privacy URL)
+ *  - Age Rating declaration attached to the selected AppInfo
  *  - subscription groups + subscriptions (IAP readiness)
  *  - app price schedule (price tier set)
  *  - app availability v2 (at least one territory selected)
@@ -519,6 +520,8 @@ export function useChecklistQuery(args: {
       let appInfo: ChecklistContext['appInfo'] = null;
       let primaryCategory: ChecklistContext['primaryCategory'] = null;
       let appInfoLocalization: ChecklistContext['appInfoLocalization'] = null;
+      let ageRatingDeclaration: ChecklistContext['ageRatingDeclaration'] = null;
+      let ageRatingDeclarationChecked = false;
       if (appInfosResult.status === 'fulfilled') {
         const { appInfos, categories, localizations: aiLocs } = appInfosResult.value;
         // Prefer the editable (PREPARE_FOR_SUBMISSION) bundle; fall back to
@@ -540,6 +543,17 @@ export function useChecklistQuery(args: {
             .filter((x): x is NonNullable<typeof x> => x !== undefined);
           appInfoLocalization =
             locs.find((l) => l.attributes.locale === 'en-US') ?? locs[0] ?? null;
+        }
+      }
+      if (appInfo) {
+        try {
+          ageRatingDeclaration = await client.getAgeRatingDeclaration(appInfo.id);
+          ageRatingDeclarationChecked = true;
+        } catch {
+          // Permission/network/server failures should degrade only the Age
+          // Rating rule to `unknown`, matching other optional app-level checks.
+          ageRatingDeclaration = null;
+          ageRatingDeclarationChecked = false;
         }
       }
 
@@ -590,6 +604,8 @@ export function useChecklistQuery(args: {
         appInfo,
         primaryCategory,
         appInfoLocalization,
+        ageRatingDeclaration,
+        ageRatingDeclarationChecked,
         subscriptionProducts,
         priceSchedule,
         availability,

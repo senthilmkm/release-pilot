@@ -237,6 +237,49 @@ export type ASCAppInfoLocalization = {
 
 export type ListAppInfoLocalizationsResponse = ASCApiResponse<ASCAppInfoLocalization[]>;
 
+// ----------------------------- /v1/appInfos/{id}/ageRatingDeclaration ------
+//
+// App Store Connect stores Age Rating answers on the AppInfo resource. The
+// declaration is a to-one related resource, not a field returned by
+// `/v1/apps/{id}/appInfos`, so the Checklist fetches it after selecting the
+// editable/live AppInfo.
+
+export type ASCAgeRatingDeclarationFrequency =
+  | 'NONE'
+  | 'INFREQUENT'
+  | 'FREQUENT'
+  | 'FREQUENT_OR_INTENSE'
+  | 'INFREQUENT_OR_MILD'
+  | string;
+
+export type ASCAgeRatingDeclaration = {
+  type: 'ageRatingDeclarations';
+  id: string;
+  attributes: {
+    alcoholTobaccoOrDrugUseOrReferences?: ASCAgeRatingDeclarationFrequency;
+    contests?: ASCAgeRatingDeclarationFrequency;
+    gambling?: boolean;
+    gamblingSimulated?: ASCAgeRatingDeclarationFrequency;
+    kidsAgeBand?: string | null;
+    lootBox?: boolean;
+    medicalOrTreatmentInformation?: ASCAgeRatingDeclarationFrequency;
+    profanityOrCrudeHumor?: ASCAgeRatingDeclarationFrequency;
+    sexualContentGraphicAndNudity?: ASCAgeRatingDeclarationFrequency;
+    sexualContentOrNudity?: ASCAgeRatingDeclarationFrequency;
+    horrorOrFearThemes?: ASCAgeRatingDeclarationFrequency;
+    matureOrSuggestiveThemes?: ASCAgeRatingDeclarationFrequency;
+    unrestrictedWebAccess?: boolean;
+    violenceCartoonOrFantasy?: ASCAgeRatingDeclarationFrequency;
+    violenceRealisticProlongedGraphicOrSadistic?: ASCAgeRatingDeclarationFrequency;
+    violenceRealistic?: ASCAgeRatingDeclarationFrequency;
+    ageRatingOverride?: string | null;
+    koreaAgeRatingOverride?: string | null;
+    seventeenPlus?: boolean;
+  };
+};
+
+export type GetAgeRatingDeclarationResponse = ASCApiResponse<ASCAgeRatingDeclaration>;
+
 // ----------------------------- /v1/apps/{id}/subscriptionGroups -----------
 //
 // Used by the Checklist rule that warns when any subscription product is

@@ -15,6 +15,7 @@ import type {
   ASCAppScreenshotSet,
   ASCAppStoreVersion,
   ASCAppStoreVersionLocalization,
+  ASCAgeRatingDeclaration,
   ASCBuild,
   ASCSubscription,
 } from '@/lib/api/asc-types';
@@ -122,6 +123,34 @@ function makeAppInfoLoc(over: Partial<ASCAppInfoLocalization['attributes']> & { 
   };
 }
 
+function makeAgeRatingDeclaration(
+  over: Partial<ASCAgeRatingDeclaration['attributes']> = {},
+): ASCAgeRatingDeclaration {
+  return {
+    type: 'ageRatingDeclarations',
+    id: 'age-1',
+    attributes: {
+      alcoholTobaccoOrDrugUseOrReferences: 'NONE',
+      contests: 'NONE',
+      gambling: false,
+      gamblingSimulated: 'NONE',
+      kidsAgeBand: null,
+      lootBox: false,
+      medicalOrTreatmentInformation: 'NONE',
+      profanityOrCrudeHumor: 'NONE',
+      sexualContentGraphicAndNudity: 'NONE',
+      sexualContentOrNudity: 'NONE',
+      horrorOrFearThemes: 'NONE',
+      matureOrSuggestiveThemes: 'NONE',
+      unrestrictedWebAccess: false,
+      violenceCartoonOrFantasy: 'NONE',
+      violenceRealisticProlongedGraphicOrSadistic: 'NONE',
+      violenceRealistic: 'NONE',
+      ...over,
+    },
+  };
+}
+
 function makeSub(productId: string, state = 'READY_TO_SUBMIT'): ASCSubscription {
   return {
     type: 'subscriptions',
@@ -162,6 +191,14 @@ function makeCtx(over: Partial<ChecklistContext> = {}): ChecklistContext {
     appInfo: over.appInfo === undefined ? makeAppInfo() : over.appInfo,
     primaryCategory: over.primaryCategory === undefined ? makeCategory('PRODUCTIVITY') : over.primaryCategory,
     appInfoLocalization: over.appInfoLocalization === undefined ? makeAppInfoLoc() : over.appInfoLocalization,
+    ageRatingDeclaration:
+      over.ageRatingDeclaration === undefined
+        ? makeAgeRatingDeclaration()
+        : over.ageRatingDeclaration,
+    ageRatingDeclarationChecked:
+      over.ageRatingDeclarationChecked === undefined
+        ? true
+        : over.ageRatingDeclarationChecked,
     subscriptionProducts:
       over.subscriptionProducts === undefined
         ? [
@@ -188,21 +225,21 @@ function ruleById(results: ReturnType<typeof runChecklist>, id: string) {
 // RULE_COUNT / runChecklist baseline
 // ---------------------------------------------------------------------------
 
-ok('exposes 22 rules',           RULE_COUNT === 22);
-ok('runChecklist returns 22',    runChecklist(makeCtx()).length === 22);
+ok('exposes 23 rules',           RULE_COUNT === 23);
+ok('runChecklist returns 23',    runChecklist(makeCtx()).length === 23);
 
 // Happy path: a clean draft + complete app metadata + all-ready subs +
 // configured price + selected territories + clean keyword field (4
 // keyword-linter rules added v1.0.1) should produce:
-//   - 19 pass (was 18 pre-subtitle rule)
+//   - 20 pass (was 19 pre-age-rating rule)
 //   - 2 unknown (encryption + app-privacy-details — always dashboard-only)
 //   - 1 na (keyword-locale-coverage — happy ctx has only 1 locale)
 // No warns, no fails.
 {
   const results = runChecklist(makeCtx());
   const summary = summarizeChecklist(results);
-  ok('happy path: 19 pass + 2 unknown + 1 na',
-    summary.pass === 19 && summary.unknown === 2 && summary.na === 1);
+  ok('happy path: 20 pass + 2 unknown + 1 na',
+    summary.pass === 20 && summary.unknown === 2 && summary.na === 1);
   ok('happy path: overallSeverity = unknown (no warn/fail)', summary.overallSeverity === 'unknown');
 }
 
@@ -755,6 +792,56 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
 }
 
 // ---------------------------------------------------------------------------
+// ruleAgeRatingDeclaration (app-level)
+// ---------------------------------------------------------------------------
+
+{
+  const r = ruleById(runChecklist(makeCtx({ appInfo: null })), 'age-rating');
+  ok('age-rating: no appInfo → unknown', r?.severity === 'unknown');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    ageRatingDeclaration: null,
+    ageRatingDeclarationChecked: false,
+  })), 'age-rating');
+  ok('age-rating: API failure → unknown', r?.severity === 'unknown');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    ageRatingDeclaration: null,
+    ageRatingDeclarationChecked: true,
+  })), 'age-rating');
+  ok('age-rating: checked but missing declaration → fail', r?.severity === 'fail');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    ageRatingDeclaration: makeAgeRatingDeclaration({
+      violenceRealistic: undefined,
+    }),
+  })), 'age-rating');
+  ok('age-rating: missing one required content answer → fail', r?.severity === 'fail');
+  ok('age-rating: missing-field message names the category',
+    typeof r?.message === 'string' && r.message.toLowerCase().includes('realistic violence'));
+}
+{
+  const r = ruleById(runChecklist(makeCtx()), 'age-rating');
+  ok('age-rating: complete all-none declaration → pass', r?.severity === 'pass');
+}
+{
+  const r = ruleById(runChecklist(makeCtx({
+    ageRatingDeclaration: makeAgeRatingDeclaration({
+      unrestrictedWebAccess: true,
+      contests: 'INFREQUENT',
+    }),
+  })), 'age-rating');
+  ok('age-rating: complete declaration with active signals → pass', r?.severity === 'pass');
+  ok('age-rating: pass message summarizes active signals',
+    typeof r?.message === 'string' &&
+    r.message.includes('unrestricted web access') &&
+    r.message.includes('contests'));
+}
+
+// ---------------------------------------------------------------------------
 // ruleAppPrivacyDetails (always unknown — like encryption)
 // ---------------------------------------------------------------------------
 
@@ -1061,7 +1148,7 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
 
 {
   // Partial API failure during app-level fetch (e.g., 403 on listAppInfos
-  // but getApp + subscriptionGroups succeeded). The 3 appInfo-derived
+  // but getApp + subscriptionGroups succeeded). The 4 appInfo-derived
   // rules degrade to unknown — we want them surfaced so the user can
   // verify manually in ASC.
   const ctx = makeCtx({
@@ -1076,14 +1163,14 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
   const results = runChecklist(ctx);
   const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
-  ok('partial API-fail: surfaces the 3 unknown rows for manual verify',
-    nonNaNonPass.length === 3 && nonNaNonPass.every((r) => r.severity === 'unknown'));
-  ok('partial API-fail: summary.unknown === 3',
-    summary.unknown === 3 && summary.hasDraft === false);
+  ok('partial API-fail: surfaces the 4 unknown rows for manual verify',
+    nonNaNonPass.length === 4 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('partial API-fail: summary.unknown === 4',
+    summary.unknown === 4 && summary.hasDraft === false);
 }
 
 {
-  // Total app-level fetch failure (all 5 endpoints 403). Every app-level
+  // Total app-level fetch failure (all app-level endpoints 403). Every app-level
   // rule that has data dependencies degrades to unknown.
   const ctx = makeCtx({
     version: null,
@@ -1101,10 +1188,10 @@ ok('singularize: idempotent on singular', singularize('note') === 'note');
   const results = runChecklist(ctx);
   const summary = summarizeChecklist(results, ctx);
   const nonNaNonPass = results.filter((r) => r.severity !== 'na' && r.severity !== 'pass');
-  ok('full API-fail: surfaces 7 unknowns (content + category + subtitle + privacy + subs + price + availability)',
-    nonNaNonPass.length === 7 && nonNaNonPass.every((r) => r.severity === 'unknown'));
-  ok('full API-fail: summary.unknown === 7',
-    summary.unknown === 7);
+  ok('full API-fail: surfaces 8 unknowns (content + appInfo rules + subs + price + availability)',
+    nonNaNonPass.length === 8 && nonNaNonPass.every((r) => r.severity === 'unknown'));
+  ok('full API-fail: summary.unknown === 8',
+    summary.unknown === 8);
 }
 
 // ---------------------------------------------------------------------------

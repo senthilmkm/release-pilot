@@ -10,6 +10,7 @@ import type {
   ASCAppScreenshotSet,
   ASCAppStoreVersion,
   ASCAppStoreVersionLocalization,
+  ASCAgeRatingDeclaration,
   ASCBuild,
   ASCCustomerReview,
   ASCCustomerReviewResponse,
@@ -18,6 +19,7 @@ import type {
   ASCSubscriptionGroup,
   GetAppAvailabilityResponse,
   GetAppPriceScheduleResponse,
+  GetAgeRatingDeclarationResponse,
   ListAppInfosResponse,
   ListAppsResponse,
   ListAppStoreVersionsResponse,
@@ -262,6 +264,51 @@ export class ASCClient {
       'appInfoLocalizations',
     );
     return { appInfos: data.data, categories, localizations };
+  }
+
+  /**
+   * GET /v1/appInfos/{id}/ageRatingDeclaration
+   *
+   * Age Rating is a to-one related resource on AppInfo. It is not included
+   * in the AppInfo list payload, so the Checklist calls this after choosing
+   * the editable/live AppInfo.
+   */
+  async getAgeRatingDeclaration(
+    appInfoId: string,
+  ): Promise<ASCAgeRatingDeclaration | null> {
+    const fields = [
+      'alcoholTobaccoOrDrugUseOrReferences',
+      'contests',
+      'gambling',
+      'gamblingSimulated',
+      'kidsAgeBand',
+      'lootBox',
+      'medicalOrTreatmentInformation',
+      'profanityOrCrudeHumor',
+      'sexualContentGraphicAndNudity',
+      'sexualContentOrNudity',
+      'horrorOrFearThemes',
+      'matureOrSuggestiveThemes',
+      'unrestrictedWebAccess',
+      'violenceCartoonOrFantasy',
+      'violenceRealisticProlongedGraphicOrSadistic',
+      'violenceRealistic',
+      'ageRatingOverride',
+      'koreaAgeRatingOverride',
+      'seventeenPlus',
+    ].join(',');
+    const path =
+      `/v1/appInfos/${encodeURIComponent(appInfoId)}/ageRatingDeclaration` +
+      `?fields[ageRatingDeclarations]=${fields}`;
+    try {
+      const data = await this.fetch<GetAgeRatingDeclarationResponse>(path);
+      return data.data;
+    } catch (e) {
+      if (e instanceof ASCError && e.kind === 'not_found') {
+        return null;
+      }
+      throw e;
+    }
   }
 
   /**

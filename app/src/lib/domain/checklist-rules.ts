@@ -6,6 +6,7 @@ import type {
   ASCAppScreenshotSet,
   ASCAppStoreVersion,
   ASCAppStoreVersionLocalization,
+  ASCAgeRatingDeclaration,
   ASCBuild,
   ASCSubscription,
 } from '@/lib/api/asc-types';
@@ -104,6 +105,12 @@ export type ChecklistContext = {
   /** AppInfo localization in primary locale (for `privacyPolicyUrl`). */
   appInfoLocalization: ASCAppInfoLocalization | null;
   /**
+   * Age Rating answers attached to `appInfo`. `ageRatingDeclarationChecked`
+   * separates "successfully fetched but missing" from "couldn't read it".
+   */
+  ageRatingDeclaration: ASCAgeRatingDeclaration | null;
+  ageRatingDeclarationChecked: boolean;
+  /**
    * Every subscription product across every group on this app. Empty
    * array = app has no IAP (rule degrades to `na`). `null` = we couldn't
    * read this endpoint (403 / network / etc) — rule degrades to `unknown`.
@@ -144,6 +151,46 @@ const IPHONE_PRIMARY_DISPLAYS = new Set([
   'APP_IPHONE_61',
   'APP_IPHONE_55',
 ]);
+
+const AGE_RATING_ENUM_FIELDS = [
+  'alcoholTobaccoOrDrugUseOrReferences',
+  'contests',
+  'gamblingSimulated',
+  'medicalOrTreatmentInformation',
+  'profanityOrCrudeHumor',
+  'sexualContentGraphicAndNudity',
+  'sexualContentOrNudity',
+  'horrorOrFearThemes',
+  'matureOrSuggestiveThemes',
+  'violenceCartoonOrFantasy',
+  'violenceRealisticProlongedGraphicOrSadistic',
+  'violenceRealistic',
+] as const;
+
+const AGE_RATING_BOOLEAN_FIELDS = [
+  'gambling',
+  'unrestrictedWebAccess',
+] as const;
+
+const AGE_RATING_LABELS: Record<
+  (typeof AGE_RATING_ENUM_FIELDS)[number] | (typeof AGE_RATING_BOOLEAN_FIELDS)[number],
+  string
+> = {
+  alcoholTobaccoOrDrugUseOrReferences: 'alcohol/tobacco/drug references',
+  contests: 'contests',
+  gamblingSimulated: 'simulated gambling',
+  medicalOrTreatmentInformation: 'medical/treatment information',
+  profanityOrCrudeHumor: 'profanity/crude humor',
+  sexualContentGraphicAndNudity: 'graphic sexual content',
+  sexualContentOrNudity: 'sexual content/nudity',
+  horrorOrFearThemes: 'horror/fear themes',
+  matureOrSuggestiveThemes: 'mature/suggestive themes',
+  violenceCartoonOrFantasy: 'cartoon/fantasy violence',
+  violenceRealisticProlongedGraphicOrSadistic: 'graphic realistic violence',
+  violenceRealistic: 'realistic violence',
+  gambling: 'gambling',
+  unrestrictedWebAccess: 'unrestricted web access',
+};
 
 // ---------------------------------------------------------------------------
 // Keyword linter (v1.0.1) — pure ASO-quality checks
@@ -342,8 +389,43 @@ function isLikelyUrl(s: string | undefined | null): boolean {
   return /^https?:\/\/[^\s]+\.[^\s]+/.test(s.trim());
 }
 
+function missingAgeRatingFields(
+  declaration: ASCAgeRatingDeclaration,
+): string[] {
+  const missing: string[] = [];
+  for (const field of AGE_RATING_ENUM_FIELDS) {
+    if (!isNonEmpty(declaration.attributes[field])) {
+      missing.push(AGE_RATING_LABELS[field]);
+    }
+  }
+  for (const field of AGE_RATING_BOOLEAN_FIELDS) {
+    if (typeof declaration.attributes[field] !== 'boolean') {
+      missing.push(AGE_RATING_LABELS[field]);
+    }
+  }
+  return missing;
+}
+
+function activeAgeRatingSignals(
+  declaration: ASCAgeRatingDeclaration,
+): string[] {
+  const active: string[] = [];
+  for (const field of AGE_RATING_ENUM_FIELDS) {
+    const value = declaration.attributes[field];
+    if (isNonEmpty(value) && value !== 'NONE') {
+      active.push(`${AGE_RATING_LABELS[field]}: ${value.toLowerCase().replace(/_/g, ' ')}`);
+    }
+  }
+  for (const field of AGE_RATING_BOOLEAN_FIELDS) {
+    if (declaration.attributes[field] === true) {
+      active.push(AGE_RATING_LABELS[field]);
+    }
+  }
+  return active;
+}
+
 // ---------------------------------------------------------------------------
-// The 21 rules (10 per-version + 4 keyword-linter + 4 app-level + 1 IAP +
+// The rules (10 per-version + keyword-linter + app-level + IAP +
 // 2 pricing/availability)
 // ---------------------------------------------------------------------------
 
@@ -911,7 +993,7 @@ const rulePrivacyEncryption = (ctx: ChecklistContext): RuleResult => {
 };
 
 // ---------------------------------------------------------------------------
-// App-level rules (5) — these check fields that survive across versions.
+// App-level rules — these check fields that survive across versions.
 // They especially matter for FIRST submissions, where every app-level
 // field is also a blocker (Apple won't accept the binary without them).
 // ---------------------------------------------------------------------------
@@ -1117,6 +1199,69 @@ const ruleSubtitle = (ctx: ChecklistContext): RuleResult => {
     title: 'Subtitle is filled and safe',
     severity: 'pass',
     message: `"${s}" (${s.length} chars).`,
+  };
+};
+
+const ruleAgeRatingDeclaration = (ctx: ChecklistContext): RuleResult => {
+  if (!ctx.appInfo) {
+    return {
+      id: 'age-rating',
+      title: 'Age Rating details completed',
+      severity: 'unknown',
+      message: "We couldn't read your App Info from the API.",
+      remediation: 'App Store Connect → App Information → Age Rating → complete the questionnaire.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  if (!ctx.ageRatingDeclarationChecked) {
+    return {
+      id: 'age-rating',
+      title: 'Age Rating details completed',
+      severity: 'unknown',
+      message: "We couldn't read the Age Rating declaration from the API.",
+      remediation:
+        'App Store Connect → App Information → Age Rating → verify every answer manually.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+  if (!ctx.ageRatingDeclaration) {
+    return {
+      id: 'age-rating',
+      title: 'Age Rating details completed',
+      severity: 'fail',
+      message: 'No Age Rating declaration found for this App Info.',
+      remediation:
+        'App Store Connect → App Information → Age Rating → complete and save the questionnaire before submitting.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+
+  const missing = missingAgeRatingFields(ctx.ageRatingDeclaration);
+  if (missing.length > 0) {
+    const shown = missing.slice(0, 3).join(', ');
+    return {
+      id: 'age-rating',
+      title: 'Age Rating details completed',
+      severity: 'fail',
+      message:
+        missing.length === 1
+          ? `Age Rating is missing: ${shown}.`
+          : `Age Rating is missing ${missing.length} answers, including ${shown}.`,
+      remediation:
+        'App Store Connect → App Information → Age Rating → answer every content category and save.',
+      ascDeepLink: ascAppLink(ctx.appId, 'appstore/info'),
+    };
+  }
+
+  const active = activeAgeRatingSignals(ctx.ageRatingDeclaration);
+  return {
+    id: 'age-rating',
+    title: 'Age Rating details completed',
+    severity: 'pass',
+    message:
+      active.length === 0
+        ? 'Age Rating questionnaire is complete; all tracked content categories are declared None/No.'
+        : `Age Rating questionnaire is complete; ${active.slice(0, 3).join(', ')}${active.length > 3 ? `, +${active.length - 3} more` : ''}.`,
   };
 };
 
@@ -1328,6 +1473,7 @@ const RULE_DEFINITIONS: readonly ((ctx: ChecklistContext) => RuleResult)[] = [
   ruleContentRights,
   ruleCategory,
   ruleSubtitle,
+  ruleAgeRatingDeclaration,
   rulePrivacyPolicyUrl,
   ruleAppPrivacyDetails,
 
