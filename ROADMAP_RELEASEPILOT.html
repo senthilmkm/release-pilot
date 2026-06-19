@@ -200,13 +200,13 @@
 
 <header class="page">
   <h1>Release Pilot — Roadmap</h1>
-  <div class="sub">iPhone home-screen companion for App Store releases &middot; Last updated Jun 12, 2026</div>
+  <div class="sub">iPhone home-screen companion for App Store releases &middot; Last updated Jun 18, 2026</div>
 
   <div class="stats">
     <div class="stat"><div class="num">10</div><div class="lab">V1 phases shipped</div></div>
     <div class="stat"><div class="num">353</div><div class="lab">automated tests passing</div></div>
     <div class="stat"><div class="num">3</div><div class="lab">V1 items still pending</div></div>
-    <div class="stat"><div class="num">9</div><div class="lab">V1.5 + V2 features queued</div></div>
+    <div class="stat"><div class="num">5</div><div class="lab">V1.1 features next</div></div>
   </div>
 
   <div class="legend">
@@ -417,6 +417,65 @@
 
 <!-- ============================================================== -->
 <section>
+  <h2>V1.1 — Differentiation horizon <span class="scope">gated on v1.0 approval + 2&ndash;4 weeks of real-user feedback</span></h2>
+  <p class="section-desc">
+    Five features informed by competitor analysis (see <code>RELEASE_PILOT_COMPETITORS.html</code>). Closes the most common &ldquo;I still need Apple&rsquo;s ASC app&rdquo; objections (TestFlight, Watch), adds a marketing hook nobody else surfaces well on mobile (Leak Detector), and extends the Pre-flight Checklist moat with ASO keyword suggestions.
+    <br><br>
+    <strong>Packaging:</strong>
+    <ul style="margin: 6px 0 0 0; padding-left: 18px;">
+      <li><strong>v1.1.0 (OTA wave)</strong> &mdash; TestFlight tab &rarr; Insights tab &rarr; Keyword Optimizer (Search Ads API). All three OTA-deployable in one drop, no Apple review wait.</li>
+      <li><strong>v1.1.1 (native EAS build)</strong> &mdash; Keyword Optimizer (NLTagger native module) + Apple Watch app. Bundled into a single rebuild so the new native targets ship together.</li>
+    </ul>
+  </p>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">TestFlight tab &mdash; builds, testers, beta feedback</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">New segment inside Releases tab (<code>Submitted | TestFlight | Pre-flight</code>). Pulls <code>builds</code>, <code>betaTesters</code>, <code>betaFeedbackScreenshotSubmissions</code>, <code>betaFeedbackCrashSubmissions</code> from ASC API. Read-only for v1.1 &mdash; surfaces the daily question (&ldquo;did anyone hit a bug overnight?&rdquo;) and closes the biggest &ldquo;I still need Apple&rsquo;s app&rdquo; objection. <strong>OTA-deployable</strong> &mdash; no new native build.</td>
+        </tr>
+        <tr>
+          <td class="name">Insights tab &mdash; funnel + countries + Leak Detector</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">New 5th tab (Checklist moves into Releases as the &ldquo;Pre-flight&rdquo; segment). 4-step funnel (impressions &rarr; views &rarr; downloads &rarr; proceeds), per-country breakdown in the user&rsquo;s local currency (auto-converted from ASC seller currency), auto-surfaced <strong>Leak Detector</strong> for high-traffic / low-conversion territories with a one-line localization tip (&ldquo;Try localizing keywords for pt-BR&rdquo;). The screenshot-tweetable feature no other mobile companion ships. <strong>OTA-deployable</strong> &mdash; uses existing ASC + App Analytics endpoints.</td>
+        </tr>
+        <tr>
+          <td class="name">Keyword Optimizer (1/2) &mdash; Apple Search Ads popularity API</td>
+          <td class="area">In-app</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Apple&rsquo;s free Search Ads API returns keyword popularity scores (1&ndash;100) and related-keyword suggestions (e.g. <code>memory &rarr; 78</code>, <code>memorize &rarr; 32</code>). Official source, no reselling concerns, no third-party data costs to RP. Requires the user to have a Search Ads account (free, no spend required) and a one-time Search Ads connector in onboarding. Same ES256 JWT pattern as the ASC signer. Surfaces inside the Pre-flight Checklist segment as a new &ldquo;Keyword Optimizer&rdquo; sub-screen. <strong>OTA-deployable</strong>.</td>
+        </tr>
+        <tr>
+          <td class="name">Keyword Optimizer (2/2) &mdash; on-device description extractor (NLTagger)</td>
+          <td class="area">Native</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">Reads the user&rsquo;s app description on-device via Apple&rsquo;s <code>NLTagger</code> Natural Language framework. Extracts noun phrases ranked by frequency + relevance, surfacing keywords already implicit in the user&rsquo;s own copy. Pairs with the Search Ads popularity scores from the row above to rank candidates (&ldquo;currently unused, popularity 78&rdquo;). <strong>Requires new native module + EAS build.</strong> A pure-JS fallback using the <code>compromise</code> npm package is OTA-deployable at ~80% quality if shipping without a rebuild is preferred.</td>
+        </tr>
+        <tr>
+          <td class="name">Apple Watch app &mdash; status, revenue, reviews on the wrist</td>
+          <td class="area">Native</td>
+          <td class="status"><span class="badge b-future">Future</span></td>
+          <td class="note">New watchOS target via <code>@bacons/apple-targets</code> (same pattern used for widgets + Live Activity). Complications for current release state, yesterday&rsquo;s revenue, unread review count. Shares the App Group with the iOS app for zero auth setup. Ships in the same <code>.ipa</code>, one App Store listing, one purchase. <strong>Requires new EAS build</strong> &mdash; do last, after the two OTA features prove demand.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
+<!-- ============================================================== -->
+<section>
   <h2>V1.5 — Next horizon <span class="scope">gated on 200+ paying subscribers + 4.5+ rating</span></h2>
   <p class="section-desc">Retention + ARPU expansion. Introduces the &ldquo;Studio&rdquo; tier at $19.99/mo or $149/yr.</p>
   <div class="panel">
@@ -437,16 +496,10 @@
           <td class="note">A second widget kind alongside Releases. Renders MRR delta, new trials, top review, active release state.</td>
         </tr>
         <tr>
-          <td class="name">TestFlight feedback inbox</td>
-          <td class="area">In-app</td>
+          <td class="name">Instant sale badge + push alerts</td>
+          <td class="area">Backend + Native</td>
           <td class="status"><span class="badge b-future">Future</span></td>
-          <td class="note">Pull <code>betaFeedbackScreenshotSubmissions</code> + <code>betaFeedbackCrashSubmissions</code>, group by build, inline viewer.</td>
-        </tr>
-        <tr>
-          <td class="name">Apple Watch app + release-status complication</td>
-          <td class="area">Native</td>
-          <td class="status"><span class="badge b-future">Future</span></td>
-          <td class="note">Glanceable: app + state + minutes-in-state. Mini review reader for the latest 5.</td>
+          <td class="note">RevenueCat webhook &rarr; Cloudflare Worker &rarr; APNs badge push when any connected app gets a new sale. Badge count = unseen sales since the user last opened Release Pilot; opening the app clears it. Requires webhook auth, idempotency, per-device badge state, APNs badge payloads, notification settings, and a new EAS build. Not an OTA-only feature.</td>
         </tr>
         <tr>
           <td class="name">Review sentiment trend (on-device NL)</td>
