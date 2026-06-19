@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import {
   AlertTriangle,
   ArrowRight,
@@ -21,7 +22,13 @@ import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
 import { useAllAppsQuery, useAllReviewsQuery, useLatestStatesQuery } from '@/lib/api/asc-queries';
 import { useRevenueOverviewsQuery } from '@/lib/api/revenuecat-queries';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
-import { dismissRcBanner, isRcBannerDismissed } from '@/lib/state/today-banner';
+import {
+  dismissRcBanner,
+  dismissRejectedAlert,
+  isRcBannerDismissed,
+  isRejectedAlertDismissed,
+  rejectedAlertDismissKey,
+} from '@/lib/state/today-banner';
 import { useFreeApp } from '@/hooks/use-free-app';
 import { usePaywallGate } from '@/hooks/use-paywall-gate';
 import {
@@ -171,6 +178,7 @@ export default function BriefingTab() {
   const gate = usePaywallGate();
   const [rcBannerDismissed, setRcBannerDismissed] = useState(() => isRcBannerDismissed());
   const showRcBanner = apps.length > 0 && noRcConnected && !rcBannerDismissed;
+  const [dismissedRejectionKeys, setDismissedRejectionKeys] = useState<Set<string>>(() => new Set());
 
   const [metricsHelpVisible, setMetricsHelpVisible] = useState(false);
   const openMetricsHelp = useCallback(() => setMetricsHelpVisible(true), []);
@@ -196,6 +204,32 @@ export default function BriefingTab() {
       params: { ascAppId: first.ascId, appName: first.name, bundleId: first.bundleId },
     });
   }, [apps, gate]);
+
+  const rejectedAlerts = useMemo(
+    () =>
+      briefing.cards
+        .filter((card) => card.currentState === 'rejected')
+        .map((card) => ({
+          card,
+          dismissKey: rejectedAlertDismissKey({
+            ascAppId: card.ascAppId,
+            versionLabel: card.currentVersionLabel,
+          }),
+        }))
+        .filter(
+          ({ dismissKey }) =>
+            !dismissedRejectionKeys.has(dismissKey) && !isRejectedAlertDismissed(dismissKey),
+        ),
+    [briefing.cards, dismissedRejectionKeys],
+  );
+  const dismissRejection = useCallback((dismissKey: string) => {
+    dismissRejectedAlert(dismissKey);
+    setDismissedRejectionKeys((prev) => {
+      const next = new Set(prev);
+      next.add(dismissKey);
+      return next;
+    });
+  }, []);
 
   return (
     <SafeAreaView
@@ -223,6 +257,14 @@ export default function BriefingTab() {
         {showRcBanner && (
           <ConnectRcBanner onTap={onTapRcBanner} onDismiss={onDismissRcBanner} />
         )}
+
+        {rejectedAlerts.map(({ card, dismissKey }) => (
+          <RejectedAlertCard
+            key={dismissKey}
+            card={card}
+            onDismiss={() => dismissRejection(dismissKey)}
+          />
+        ))}
 
         <HeroSummary briefing={briefing} />
 
@@ -337,6 +379,92 @@ function ConnectRcBanner({
       >
         <X size={16} color={palette.textTertiary} strokeWidth={2.2} />
       </Pressable>
+    </View>
+  );
+}
+
+function RejectedAlertCard({
+  card,
+  onDismiss,
+}: {
+  card: AppBriefingCard;
+  onDismiss: () => void;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  const openDetails = () => {
+    router.push({ pathname: '/(tabs)/releases/[id]', params: { id: card.ascAppId } });
+  };
+  const openAsc = () => {
+    void WebBrowser.openBrowserAsync(
+      `https://appstoreconnect.apple.com/apps/${card.ascAppId}/appstore/ios`,
+    );
+  };
+
+  return (
+    <View
+      style={[
+        styles.rejectedAlert,
+        { backgroundColor: palette.destructiveMuted, borderColor: palette.destructive },
+      ]}
+    >
+      <View style={styles.rejectedAlertHeader}>
+        <View style={styles.rejectedAlertTitleRow}>
+          <AlertTriangle size={18} color={palette.destructive} strokeWidth={2.4} />
+          <View style={{ flex: 1 }}>
+            <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+              {card.appName} was rejected by Apple
+            </ThemedText>
+            {card.currentVersionLabel && (
+              <ThemedText style={[TypeScale.caption, { color: palette.textSecondary }]}>
+                {card.currentVersionLabel}
+              </ThemedText>
+            )}
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Dismiss rejection alert for ${card.appName}`}
+          onPress={onDismiss}
+          hitSlop={12}
+          style={styles.rejectedDismissBtn}
+        >
+          <X size={16} color={palette.textTertiary} strokeWidth={2.2} />
+        </Pressable>
+      </View>
+
+      <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+        Open App Store Connect&apos;s Resolution Center to read Apple&apos;s exact reason, then fix and resubmit.
+      </ThemedText>
+
+      <View style={styles.rejectedActions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Open release details for ${card.appName}`}
+          onPress={openDetails}
+          style={({ pressed }) => [
+            styles.rejectedPrimaryBtn,
+            { backgroundColor: palette.destructive, opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
+          <ThemedText style={[TypeScale.captionEmph, { color: palette.textInverse }]}>
+            Open details
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${card.appName} in App Store Connect`}
+          onPress={openAsc}
+          style={({ pressed }) => [
+            styles.rejectedSecondaryBtn,
+            { borderColor: palette.destructive, opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
+          <ThemedText style={[TypeScale.captionEmph, { color: palette.destructive }]}>
+            Open ASC
+          </ThemedText>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -976,5 +1104,44 @@ const styles = StyleSheet.create({
   connectRcBannerDismiss: {
     padding: Spacing.three,
     alignSelf: 'flex-start',
+  },
+  rejectedAlert: {
+    borderRadius: Radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  rejectedAlertHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  rejectedAlertTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  rejectedDismissBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectedActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  rejectedPrimaryBtn: {
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  rejectedSecondaryBtn: {
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

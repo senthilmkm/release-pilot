@@ -20,6 +20,7 @@ import { storage } from './storage';
  */
 
 const KEY = 'today.connect-rc-banner-dismissed-ms.v1';
+const REJECTED_ALERT_PREFIX = 'today.rejected-alert-dismissed-ms.v1';
 
 /** Returns true if the user has explicitly dismissed the banner. */
 export function isRcBannerDismissed(): boolean {
@@ -35,4 +36,19 @@ export function dismissRcBanner(nowMs: number = Date.now()): void {
  *  Today-tab render decides whether to show it again. */
 export function resetRcBannerDismiss(): void {
   storage.remove(KEY);
+}
+
+export function rejectedAlertDismissKey(args: {
+  ascAppId: string;
+  versionLabel: string | null;
+}): string {
+  return `${args.ascAppId}:${args.versionLabel ?? 'unknown-version'}`;
+}
+
+export function isRejectedAlertDismissed(key: string): boolean {
+  return storage.getNumber(`${REJECTED_ALERT_PREFIX}.${key}`) != null;
+}
+
+export function dismissRejectedAlert(key: string, nowMs: number = Date.now()): void {
+  storage.set(`${REJECTED_ALERT_PREFIX}.${key}`, nowMs);
 }
