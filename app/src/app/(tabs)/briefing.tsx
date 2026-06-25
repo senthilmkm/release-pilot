@@ -635,7 +635,7 @@ function AppCard({
       gate.openPaywall('add-app-limit');
       return;
     }
-    router.push({ pathname: '/(tabs)/releases/[id]', params: { id: card.ascAppId } });
+    router.push({ pathname: './briefing-detail/[id]', params: { id: card.ascAppId } });
   };
 
   return (

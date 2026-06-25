@@ -1,0 +1,1032 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  DollarSign,
+  ExternalLink,
+  Lock,
+  MessageSquare,
+  Sparkles,
+  TrendingUp,
+} from 'lucide-react-native';
+
+import { EmptyState } from '@/components/empty-state';
+import { StateBadge } from '@/components/state-badge';
+import { ThemedText } from '@/components/themed-text';
+import { Colors, Radii, Spacing, TypeScale } from '@/constants/theme';
+import { useResolvedScheme } from '@/hooks/use-resolved-scheme';
+import { useFreeApp } from '@/hooks/use-free-app';
+import { usePaywallGate } from '@/hooks/use-paywall-gate';
+import { useAllAppsQuery, useAllReviewsQuery, useLatestStatesQuery } from '@/lib/api/asc-queries';
+import {
+  useRevenueCustomerMomentumQuery,
+  useRevenueOverviewsQuery,
+  useRevenueSubscriptionMomentumQuery,
+} from '@/lib/api/revenuecat-queries';
+import { buildBriefing, type AppBriefingCard } from '@/lib/domain/briefing';
+import { loadLastBriefingSnapshot } from '@/lib/domain/briefing-snapshot-store';
+import type { ReviewSummary } from '@/lib/domain/review-feed';
+import type {
+  RevenueCatCustomerMomentum,
+  RevenueCatDailySeries,
+  RevenueCatSubscriptionMomentum,
+} from '@/lib/api/revenuecat-types';
+import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
+
+export default function BriefingAppDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+
+  const appsQuery = useAllAppsQuery();
+  const apps = useMemo(() => appsQuery.data?.apps ?? [], [appsQuery.data?.apps]);
+  const app = apps.find((a) => a.ascId === id);
+  const statesQuery = useLatestStatesQuery({ apps });
+  const reviewsQuery = useAllReviewsQuery({ apps });
+  const rcQuery = useRevenueOverviewsQuery();
+  const momentumQuery = useRevenueCustomerMomentumQuery(id);
+  const subscriptionMomentumQuery = useRevenueSubscriptionMomentumQuery(id);
+  const rcMeta = useAppRevenueCatStore((s) => s.byAscAppId);
+  const { isLocked } = useFreeApp();
+  const gate = usePaywallGate();
+
+  const [nowMs] = useState(() => Date.now());
+  const [previousSnapshot] = useState(() => loadLastBriefingSnapshot());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const reviewsByAppId = useMemo(() => {
+    const m = new Map<string, ReviewSummary[]>();
+    for (const r of reviewsQuery.reviews) {
+      const arr = m.get(r.appId) ?? [];
+      arr.push(r);
+      m.set(r.appId, arr);
+    }
+    return m;
+  }, [reviewsQuery.reviews]);
+
+  const appsForBriefing = useMemo(
+    () => apps.map((a) => ({ ascAppId: a.ascId, appName: a.name, bundleId: a.bundleId })),
+    [apps],
+  );
+
+  const card = useMemo(() => {
+    const { briefing } = buildBriefing({
+      apps: appsForBriefing,
+      statesByAppId: statesQuery.byAppId,
+      reviewsByAppId,
+      revenueByAppId: rcQuery.byAppId,
+      previousSnapshot,
+      nowMs,
+    });
+    return briefing.cards.find((c) => c.ascAppId === id) ?? null;
+  }, [
+    appsForBriefing,
+    statesQuery.byAppId,
+    reviewsByAppId,
+    rcQuery.byAppId,
+    previousSnapshot,
+    nowMs,
+    id,
+  ]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        appsQuery.refetch(),
+        Promise.resolve(reviewsQuery.refetch()),
+        Promise.resolve(rcQuery.refetch()),
+        Promise.resolve(momentumQuery.refetch()),
+        Promise.resolve(subscriptionMomentumQuery.refetch()),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [appsQuery, reviewsQuery, rcQuery, momentumQuery, subscriptionMomentumQuery]);
+
+  if (!id || (!appsQuery.isLoading && !app)) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
+        <EmptyState
+          icon={AlertTriangle}
+          title="App not found"
+          body="The app you tried to open isn't connected anymore."
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (id && isLocked(id)) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
+        <View style={styles.lockedFill}>
+          <View style={[styles.lockBubble, { backgroundColor: palette.accentMuted }]}>
+            <Lock size={32} color={palette.accent} strokeWidth={2} />
+          </View>
+          <ThemedText style={[TypeScale.title2, { color: palette.text, textAlign: 'center' }]}>
+            This app is Pro-only
+          </ThemedText>
+          <ThemedText style={[TypeScale.body, { color: palette.textSecondary, textAlign: 'center', maxWidth: 320 }]}>
+            Upgrade to Pro to open briefing details for every app in your account.
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="See Pro plans"
+            onPress={() => gate.openPaywall('add-app-limit')}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              { backgroundColor: palette.accent, opacity: pressed ? 0.85 : 1 },
+            ]}
+          >
+            <Sparkles size={16} color={palette.textInverse} strokeWidth={2.4} />
+            <ThemedText style={[TypeScale.bodyEmph, { color: palette.textInverse }]}>
+              See plans
+            </ThemedText>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const hasRcConnected = Boolean(id && rcMeta[id]?.verified);
+
+  return (
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.accent} />
+        }
+      >
+        <Header
+          appName={app?.name ?? card?.appName ?? 'App briefing'}
+          bundleId={app?.bundleId ?? card?.bundleId ?? ''}
+          card={card}
+        />
+
+        {!card && (appsQuery.isLoading || statesQuery.isLoading) ? (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color={palette.accent} />
+            <ThemedText style={[TypeScale.subhead, { color: palette.textSecondary }]}>
+              Loading app briefing…
+            </ThemedText>
+          </View>
+        ) : card ? (
+          <>
+            <TodaysSignal card={card} />
+            <RevenueHealth card={card} hasRcConnected={hasRcConnected} />
+            <CustomerMomentum
+              appName={card.appName}
+              hasRcConnected={hasRcConnected}
+              momentum={momentumQuery.data}
+              isLoading={momentumQuery.isLoading || momentumQuery.isFetching}
+              errorKind={momentumQuery.errorKind}
+              onRetry={momentumQuery.refetch}
+            />
+            <SubscriptionMomentum
+              appName={card.appName}
+              hasRcConnected={hasRcConnected}
+              momentum={subscriptionMomentumQuery.data}
+              isLoading={subscriptionMomentumQuery.isLoading || subscriptionMomentumQuery.isFetching}
+              errorKind={subscriptionMomentumQuery.errorKind}
+              onRetry={subscriptionMomentumQuery.refetch}
+            />
+            <ReviewAttention card={card} />
+            <NextActions card={card} hasRcConnected={hasRcConnected} />
+          </>
+        ) : (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Briefing unavailable"
+            body="Pull to refresh and try again."
+          />
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function Header({
+  appName,
+  bundleId,
+  card,
+}: {
+  appName: string;
+  bundleId: string;
+  card: AppBriefingCard | null;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  return (
+    <View style={styles.header}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back to Today"
+        onPress={() => router.back()}
+        hitSlop={12}
+        style={styles.backButton}
+      >
+        <ArrowLeft size={22} color={palette.text} strokeWidth={2.2} />
+      </Pressable>
+      <View style={styles.headerText}>
+        <View style={styles.headerTitleRow}>
+          <ThemedText style={[TypeScale.title2, { color: palette.text, flex: 1 }]} numberOfLines={1}>
+            {appName}
+          </ThemedText>
+          {card?.currentState && <StateBadge state={card.currentState} variant="compact" />}
+        </View>
+        {card?.currentVersionLabel && (
+          <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+            {card.currentVersionLabel}
+          </ThemedText>
+        )}
+        {bundleId.length > 0 && (
+          <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]} numberOfLines={1}>
+            {bundleId}
+          </ThemedText>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function TodaysSignal({ card }: { card: AppBriefingCard }) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  const isRejected = card.currentState === 'rejected';
+  return (
+    <SectionCard title="Today’s Signal" icon={<ArrowRight size={17} color={palette.accent} strokeWidth={2.3} />}>
+      {card.stateTransition ? (
+        <View style={[styles.signalCallout, { backgroundColor: isRejected ? palette.destructiveMuted : palette.accentMuted }]}>
+          {isRejected ? (
+            <AlertTriangle size={18} color={palette.destructive} strokeWidth={2.4} />
+          ) : (
+            <CheckCircle2 size={18} color={palette.accent} strokeWidth={2.4} />
+          )}
+          <ThemedText style={[TypeScale.subhead, { color: palette.text, flex: 1 }]}>
+            Moved from <ThemedText style={styles.strong}>{prettyState(card.stateTransition.from)}</ThemedText> to{' '}
+            <ThemedText style={styles.strong}>{prettyState(card.stateTransition.to)}</ThemedText> since today’s baseline.
+          </ThemedText>
+        </View>
+      ) : (
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          No release state change today.
+        </ThemedText>
+      )}
+      {card.newReviewsCount > 0 ? (
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          {card.newReviewsCount} new review{card.newReviewsCount === 1 ? '' : 's'} since the last briefing
+          {card.unrepliedLowRatingCount > 0
+            ? `, including ${card.unrepliedLowRatingCount} unreplied low-rating review${card.unrepliedLowRatingCount === 1 ? '' : 's'}`
+            : ''}.
+        </ThemedText>
+      ) : (
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          No new reviews need attention from the daily window.
+        </ThemedText>
+      )}
+    </SectionCard>
+  );
+}
+
+function RevenueHealth({
+  card,
+  hasRcConnected,
+}: {
+  card: AppBriefingCard;
+  hasRcConnected: boolean;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+
+  if (!card.revenue.connected) {
+    return (
+      <SectionCard title="Revenue Health" icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          {hasRcConnected ? 'RevenueCat data is temporarily unavailable.' : 'RevenueCat is not connected for this app yet.'}
+        </ThemedText>
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          Connect or update the RevenueCat key to unlock MRR, customers, and subscriber context.
+        </ThemedText>
+      </SectionCard>
+    );
+  }
+
+  const mrrPerSub =
+    card.revenue.activeSubscriptions > 0
+      ? card.revenue.mrr / card.revenue.activeSubscriptions
+      : null;
+  const trialShare =
+    card.revenue.activeSubscriptions > 0
+      ? card.revenue.activeTrials / card.revenue.activeSubscriptions
+      : null;
+  const revenuePerNewCustomer =
+    card.revenue.newCustomersLast28Days > 0
+      ? card.revenue.revenueLast28Days / card.revenue.newCustomersLast28Days
+      : null;
+
+  return (
+    <SectionCard title="Revenue Health" icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+        {formatMoney(card.revenue.mrr, card.revenue.currency)} MRR across{' '}
+        {card.revenue.activeSubscriptions} active subscriber
+        {card.revenue.activeSubscriptions === 1 ? '' : 's'}.
+      </ThemedText>
+      <MetricLine
+        label="MRR / active sub"
+        value={mrrPerSub == null ? '—' : formatMoney(mrrPerSub, card.revenue.currency)}
+      />
+      <MetricLine
+        label="Trial load"
+        value={
+          trialShare == null
+            ? `${card.revenue.activeTrials} trials`
+            : `${card.revenue.activeTrials} trials · ${formatPercent(trialShare)} of active subs`
+        }
+      />
+      <MetricLine
+        label="Revenue / new customer"
+        value={revenuePerNewCustomer == null ? '—' : formatMoney(revenuePerNewCustomer, card.revenue.currency)}
+      />
+      <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+        {card.revenue.stale ? 'Cached RevenueCat data' : 'Live RevenueCat snapshot'} · updated {formatRelative(card.revenue.fetchedAtMs)}
+      </ThemedText>
+    </SectionCard>
+  );
+}
+
+function CustomerMomentum({
+  appName,
+  hasRcConnected,
+  momentum,
+  isLoading,
+  errorKind,
+  onRetry,
+}: {
+  appName: string;
+  hasRcConnected: boolean;
+  momentum: RevenueCatCustomerMomentum | undefined;
+  isLoading: boolean;
+  errorKind: string | null;
+  onRetry: () => void;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+
+  if (!hasRcConnected) {
+    return (
+      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          Connect RevenueCat to see daily new customers for {appName}.
+        </ThemedText>
+      </SectionCard>
+    );
+  }
+
+  if (errorKind === 'forbidden_missing_scope') {
+    return (
+      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
+          <BarChart3 size={18} color={palette.accent} strokeWidth={2.4} />
+          <ThemedText style={[TypeScale.subhead, { color: palette.text, flex: 1 }]}>
+            Enable Charts permission to see daily customer momentum.
+          </ThemedText>
+        </View>
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          In RevenueCat, go to API keys → Secret API keys → Edit, select API version V2, then set Charts metrics permissions to Read only.
+        </ThemedText>
+      </SectionCard>
+    );
+  }
+
+  if (errorKind) {
+    return (
+      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          Couldn’t load the 14-day customer chart.
+        </ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry customer momentum chart"
+          onPress={onRetry}
+          style={({ pressed }) => [styles.secondaryButton, { borderColor: palette.border, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <ThemedText style={[TypeScale.subhead, { color: palette.accent }]}>Retry</ThemedText>
+        </Pressable>
+      </SectionCard>
+    );
+  }
+
+  if (isLoading || !momentum) {
+    return (
+      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator color={palette.accent} />
+          <ThemedText style={[TypeScale.subhead, { color: palette.textSecondary }]}>
+            Loading 14-day chart…
+          </ThemedText>
+        </View>
+      </SectionCard>
+    );
+  }
+
+  const series = momentum.customers;
+  const max = Math.max(...series.days.map((d) => d.value), 1);
+
+  return (
+    <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <View style={styles.momentumSummary}>
+        <MetricPill label="14-day total" value={String(series.total)} />
+        <MetricPill label="Avg / day" value={series.averagePerDay.toFixed(1)} />
+        <MetricPill
+          label="Best day"
+          value={series.bestDay ? `${series.bestDay.value} · ${formatShortDate(series.bestDay.date)}` : '—'}
+        />
+      </View>
+      <TrendCaption label="New customers" series={series} />
+      <View style={styles.barList}>
+        {series.days.map((day) => (
+          <View key={day.date} style={styles.barRow}>
+            <ThemedText style={[TypeScale.caption, styles.barDate, { color: palette.textTertiary }]}>
+              {formatShortDate(day.date)}
+            </ThemedText>
+            <View style={[styles.barTrack, { backgroundColor: palette.backgroundSelected }]}>
+              <View
+                style={[
+                  styles.barFill,
+                  {
+                    backgroundColor: day.value === 0 ? palette.textTertiary : palette.accent,
+                    width: `${Math.max(3, (day.value / max) * 100)}%`,
+                    opacity: day.value === 0 ? 0.25 : 1,
+                  },
+                ]}
+              />
+            </View>
+            <ThemedText style={[TypeScale.captionEmph, styles.barValue, { color: palette.text }]}>
+              {day.value}
+            </ThemedText>
+          </View>
+        ))}
+      </View>
+    </SectionCard>
+  );
+}
+
+function SubscriptionMomentum({
+  appName,
+  hasRcConnected,
+  momentum,
+  isLoading,
+  errorKind,
+  onRetry,
+}: {
+  appName: string;
+  hasRcConnected: boolean;
+  momentum: RevenueCatSubscriptionMomentum | undefined;
+  isLoading: boolean;
+  errorKind: string | null;
+  onRetry: () => void;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+
+  if (!hasRcConnected) {
+    return (
+      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          Connect RevenueCat to see paid subscription and trial momentum for {appName}.
+        </ThemedText>
+      </SectionCard>
+    );
+  }
+
+  if (errorKind === 'forbidden_missing_scope') {
+    return (
+      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
+          <TrendingUp size={18} color={palette.accent} strokeWidth={2.4} />
+          <ThemedText style={[TypeScale.subhead, { color: palette.text, flex: 1 }]}>
+            Enable Charts permission to see subscription momentum.
+          </ThemedText>
+        </View>
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          In RevenueCat, go to API keys → Secret API keys → Edit, select API version V2, then set Charts metrics permissions to Read only.
+        </ThemedText>
+      </SectionCard>
+    );
+  }
+
+  if (errorKind) {
+    return (
+      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          Couldn’t load the 14-day subscription chart.
+        </ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry subscription momentum chart"
+          onPress={onRetry}
+          style={({ pressed }) => [styles.secondaryButton, { borderColor: palette.border, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <ThemedText style={[TypeScale.subhead, { color: palette.accent }]}>Retry</ThemedText>
+        </Pressable>
+      </SectionCard>
+    );
+  }
+
+  if (isLoading || !momentum) {
+    return (
+      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator color={palette.accent} />
+          <ThemedText style={[TypeScale.subhead, { color: palette.textSecondary }]}>
+            Loading subscription momentum…
+          </ThemedText>
+        </View>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <View style={styles.momentumSummary}>
+        <MetricPill label="New paid subs" value={String(momentum.newPaidSubscriptions.total)} />
+        <MetricPill label="Trial starts" value={String(momentum.newTrials.total)} />
+        <MetricPill
+          label="Best paid-sub day"
+          value={
+            momentum.newPaidSubscriptions.bestDay
+              ? `${momentum.newPaidSubscriptions.bestDay.value} · ${formatShortDate(momentum.newPaidSubscriptions.bestDay.date)}`
+              : '—'
+          }
+        />
+      </View>
+      <TrendCaption label="Paid subscriptions" series={momentum.newPaidSubscriptions} />
+      <TrendCaption label="Trial starts" series={momentum.newTrials} />
+      <TrendCaption label="Revenue" series={momentum.revenue} />
+      <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+        Paid subs use RevenueCat’s actives_new chart: new paying subscriptions, including trial conversions, resubscriptions, and product changes.
+      </ThemedText>
+    </SectionCard>
+  );
+}
+
+function ReviewAttention({ card }: { card: AppBriefingCard }) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  const buckets = [
+    { label: '5★', value: card.newReviewsByRating.fiveStar },
+    { label: '4★', value: card.newReviewsByRating.fourStar },
+    { label: '3★', value: card.newReviewsByRating.threeStar },
+    { label: '2★', value: card.newReviewsByRating.twoStar },
+    { label: '1★', value: card.newReviewsByRating.oneStar },
+  ];
+  const max = Math.max(...buckets.map((b) => b.value), 1);
+
+  return (
+    <SectionCard title="Review Attention" icon={<MessageSquare size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+        {card.newReviewsCount === 0
+          ? 'No new reviews in the current briefing window.'
+          : `${card.newReviewsCount} new review${card.newReviewsCount === 1 ? '' : 's'} since the last briefing.`}
+      </ThemedText>
+      {card.unrepliedLowRatingCount > 0 && (
+        <View style={[styles.signalCallout, { backgroundColor: palette.destructiveMuted }]}>
+          <AlertTriangle size={18} color={palette.destructive} strokeWidth={2.4} />
+          <ThemedText style={[TypeScale.subhead, { color: palette.text, flex: 1 }]}>
+            {card.unrepliedLowRatingCount} unreplied 1–2 star review
+            {card.unrepliedLowRatingCount === 1 ? '' : 's'} should be handled first.
+          </ThemedText>
+        </View>
+      )}
+      <View style={styles.barList}>
+        {buckets.map((bucket) => (
+          <View key={bucket.label} style={styles.barRow}>
+            <ThemedText style={[TypeScale.caption, styles.barDate, { color: palette.textTertiary }]}>
+              {bucket.label}
+            </ThemedText>
+            <View style={[styles.barTrack, { backgroundColor: palette.backgroundSelected }]}>
+              <View
+                style={[
+                  styles.barFill,
+                  {
+                    backgroundColor: bucket.value === 0 ? palette.textTertiary : palette.accent,
+                    width: `${Math.max(3, (bucket.value / max) * 100)}%`,
+                    opacity: bucket.value === 0 ? 0.25 : 1,
+                  },
+                ]}
+              />
+            </View>
+            <ThemedText style={[TypeScale.captionEmph, styles.barValue, { color: palette.text }]}>
+              {bucket.value}
+            </ThemedText>
+          </View>
+        ))}
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open low-rating reviews for ${card.appName}`}
+        onPress={() =>
+          router.push({
+            pathname: '/(tabs)/reviews',
+            params: {
+              appId: card.ascAppId,
+              rating: 'negative',
+              status: 'needs_reply',
+            },
+          })
+        }
+        style={({ pressed }) => [styles.linkButton, { opacity: pressed ? 0.7 : 1 }]}
+      >
+        <ThemedText style={[TypeScale.subhead, { color: palette.accent }]}>Open low-rating reviews</ThemedText>
+        <ArrowRight size={15} color={palette.accent} strokeWidth={2.4} />
+      </Pressable>
+    </SectionCard>
+  );
+}
+
+function NextActions({
+  card,
+  hasRcConnected,
+}: {
+  card: AppBriefingCard;
+  hasRcConnected: boolean;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  const actions = deriveActions(card, hasRcConnected, palette.accent);
+
+  return (
+    <SectionCard title="Next Actions" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+      {actions.map((action) => (
+        <Pressable
+          key={action.label}
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          onPress={action.onPress}
+          style={({ pressed }) => [
+            styles.actionRow,
+            { backgroundColor: palette.backgroundSelected, opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: palette.accentMuted }]}>
+            {action.icon}
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+              {action.label}
+            </ThemedText>
+            <ThemedText style={[TypeScale.caption, { color: palette.textSecondary }]}>
+              {action.detail}
+            </ThemedText>
+          </View>
+          <ArrowRight size={16} color={palette.textTertiary} strokeWidth={2.2} />
+        </Pressable>
+      ))}
+    </SectionCard>
+  );
+}
+
+function deriveActions(card: AppBriefingCard, hasRcConnected: boolean, accentColor: string) {
+  const openReleaseDetails = () =>
+    router.push({ pathname: '/(tabs)/releases/[id]', params: { id: card.ascAppId } });
+  const openAsc = () =>
+    void WebBrowser.openBrowserAsync(
+      `https://appstoreconnect.apple.com/apps/${card.ascAppId}/appstore/ios`,
+    );
+  const openReviews = () =>
+    router.push({
+      pathname: '/(tabs)/reviews',
+      params: {
+        appId: card.ascAppId,
+        rating: 'negative',
+        status: 'needs_reply',
+      },
+    });
+
+  const actions = [
+    {
+      label: card.currentState === 'rejected' ? 'Read Apple’s rejection reason' : 'Open release details',
+      detail: card.currentState === 'rejected'
+        ? 'Jump to the app in App Store Connect and open Resolution Center.'
+        : 'Review the current version and build timeline.',
+      icon: card.currentState === 'rejected'
+        ? <ExternalLink size={15} color={accentColor} strokeWidth={2.4} />
+        : <ArrowRight size={15} color={accentColor} strokeWidth={2.4} />,
+      onPress: card.currentState === 'rejected' ? openAsc : openReleaseDetails,
+    },
+  ];
+
+  if (card.unrepliedLowRatingCount > 0) {
+    actions.push({
+      label: `Reply to ${card.unrepliedLowRatingCount} low-rating review${card.unrepliedLowRatingCount === 1 ? '' : 's'}`,
+      detail: 'Handle unhappy customers while the issue is fresh.',
+      icon: <MessageSquare size={15} color={accentColor} strokeWidth={2.4} />,
+      onPress: openReviews,
+    });
+  }
+
+  if (!hasRcConnected || !card.revenue.connected) {
+    actions.push({
+      label: hasRcConnected ? 'Update RevenueCat key' : 'Connect RevenueCat',
+      detail: 'Unlock MRR, customer momentum, and subscriber context.',
+      icon: <DollarSign size={15} color={accentColor} strokeWidth={2.4} />,
+      onPress: () =>
+        router.push({
+          pathname: '/(onboarding)/revenuecat-paste',
+          params: { ascAppId: card.ascAppId, appName: card.appName, bundleId: card.bundleId },
+        }),
+    });
+  }
+
+  if (actions.length === 1 && card.currentState !== 'rejected' && card.unrepliedLowRatingCount === 0) {
+    actions.push({
+      label: 'Nothing urgent',
+      detail: 'Your release state and review queue look calm today.',
+      icon: <CheckCircle2 size={15} color={accentColor} strokeWidth={2.4} />,
+      onPress: () => router.push('/(tabs)/briefing'),
+    });
+  }
+
+  return actions;
+}
+
+function SectionCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  return (
+    <View style={[styles.sectionCard, { backgroundColor: palette.backgroundElevated, borderColor: palette.border }]}>
+      <View style={styles.sectionHeader}>
+        <View style={[styles.sectionIcon, { backgroundColor: palette.accentMuted }]}>{icon}</View>
+        <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>{title}</ThemedText>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function MetricLine({ label, value }: { label: string; value: string }) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  return (
+    <View style={styles.metricLine}>
+      <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>{label}</ThemedText>
+      <ThemedText style={[TypeScale.captionEmph, { color: palette.text }]}>{value}</ThemedText>
+    </View>
+  );
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  return (
+    <View style={[styles.metricPill, { backgroundColor: palette.backgroundSelected }]}>
+      <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]} numberOfLines={1}>
+        {label}
+      </ThemedText>
+      <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]} numberOfLines={1}>
+        {value}
+      </ThemedText>
+    </View>
+  );
+}
+
+function TrendCaption({ label, series }: { label: string; series: RevenueCatDailySeries }) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  const trend = series.trend;
+  if (!trend) return null;
+
+  const text =
+    trend.previousTotal === 0
+      ? series.total > 0
+        ? `${label}: new this period`
+        : `${label}: flat vs previous 14d`
+      : trend.delta === 0
+        ? `${label}: flat vs previous 14d`
+      : `${label}: ${trend.delta >= 0 ? 'up' : 'down'} ${formatPercent(Math.abs(trend.deltaPercent ?? 0))} vs previous 14d`;
+
+  return (
+    <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+      {text}
+    </ThemedText>
+  );
+}
+
+function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: amount < 10 && amount > 0 ? 2 : 0,
+      maximumFractionDigits: amount < 10 && amount > 0 ? 2 : 0,
+    }).format(amount);
+  } catch {
+    return `${Math.round(amount)} ${currency}`;
+  }
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatRelative(epochMs: number): string {
+  const diffMs = Math.max(0, Date.now() - epochMs);
+  const mins = Math.round(diffMs / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+function formatShortDate(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return isoDate;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+function prettyState(state: string): string {
+  return state.replace(/_/g, ' ');
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  scroll: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.six,
+    gap: Spacing.three,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+    paddingTop: Spacing.two,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: {
+    flex: 1,
+    gap: 2,
+    paddingTop: Spacing.one,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  loadingCard: {
+    borderRadius: Radii.lg,
+    padding: Spacing.four,
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  sectionCard: {
+    borderRadius: Radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  sectionIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signalCallout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    borderRadius: Radii.md,
+    padding: Spacing.three,
+  },
+  strong: {
+    fontWeight: '700',
+  },
+  metricLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  momentumSummary: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  metricPill: {
+    flex: 1,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
+    gap: 2,
+  },
+  barList: {
+    gap: Spacing.two,
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  barDate: {
+    width: 46,
+  },
+  barTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  barValue: {
+    width: 28,
+    textAlign: 'right',
+  },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  linkButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Spacing.one,
+  },
+  actionRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    borderRadius: Radii.md,
+    padding: Spacing.three,
+  },
+  actionIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.three,
+  },
+  secondaryButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radii.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    alignSelf: 'flex-start',
+  },
+  lockedFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    padding: Spacing.four,
+  },
+  lockBubble: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

@@ -1,4 +1,8 @@
-import { projectOverview, RevenueCatClient } from './revenuecat-client';
+import {
+  projectCustomerMomentum,
+  projectOverview,
+  RevenueCatClient,
+} from './revenuecat-client';
 import { RevenueCatError } from './revenuecat-errors';
 import type { RawRevenueCatOverviewMetric } from './revenuecat-types';
 
@@ -129,6 +133,84 @@ function envelope(
 // ---------------------------------------------------------------------------
 // RevenueCatClient.create — input validation
 // ---------------------------------------------------------------------------
+
+{
+  const momentum = projectCustomerMomentum(
+    {
+      values: [
+        ['2026-06-12', 2],
+        ['2026-06-14', 4],
+        ['2026-06-16', 1],
+      ],
+    },
+    { startDate: '2026-06-12', endDate: '2026-06-18', fetchedAtMs: 123 },
+  );
+  const series = momentum.customers;
+
+  ok('customers_new: fills missing days with zero', series.days.length === 7);
+  ok('customers_new: missing day value is zero',
+    series.days.find((d) => d.date === '2026-06-13')?.value === 0);
+  ok('customers_new: total sums visible range', series.total === 7);
+  ok('customers_new: average per day calculated', series.averagePerDay === 1);
+  ok('customers_new: best day calculated',
+    series.bestDay?.date === '2026-06-14' && series.bestDay.value === 4);
+}
+
+{
+  const momentum = projectCustomerMomentum(
+    {
+      values: [[2], [0], [4], [1]],
+    },
+    { startDate: '2026-06-12', endDate: '2026-06-15', fetchedAtMs: 321 },
+  );
+  const series = momentum.customers;
+
+  ok('customers_new: index-aligned arrays map to date range',
+    series.days[0]?.date === '2026-06-12' && series.days[0].value === 2);
+  ok('customers_new: index-aligned best day calculated',
+    series.bestDay?.date === '2026-06-14' && series.bestDay.value === 4);
+  ok('customers_new: index-aligned total calculated', series.total === 7);
+}
+
+{
+  const momentum = projectCustomerMomentum(
+    {
+      values: [
+        { date: '2026-06-12', value: '3' },
+        { start_date: '2026-06-13T12:00:00Z', count: 2 },
+        { timestamp: Date.parse('2026-06-14T00:00:00Z'), value: 1 },
+        { cohort: Math.floor(Date.parse('2026-06-15T00:00:00Z') / 1000), value: 5 },
+      ],
+    },
+    { startDate: '2026-06-12', endDate: '2026-06-15', fetchedAtMs: 456 },
+  );
+  const series = momentum.customers;
+
+  ok('customers_new: accepts object date/value shapes', series.total === 11);
+  ok('customers_new: accepts unix seconds cohort timestamps',
+    series.days.find((d) => d.date === '2026-06-15')?.value === 5);
+  ok('customers_new: preserves fetchedAtMs', series.fetchedAtMs === 456);
+}
+
+{
+  const momentum = projectCustomerMomentum(
+    {
+      values: [
+        ['not-a-date', 99],
+        ['2026-06-12'],
+        ['2026-06-13', 'abc'],
+        null,
+        42,
+      ],
+    },
+    { startDate: '2026-06-12', endDate: '2026-06-14', fetchedAtMs: 789 },
+  );
+  const series = momentum.customers;
+
+  ok('customers_new: malformed response does not crash', series.days.length === 3);
+  ok('customers_new: malformed values become zero', series.total === 0);
+  ok('customers_new: best day null when all zero', series.bestDay === null);
+}
 
 {
   let threw = false;
@@ -422,6 +504,56 @@ async function runAsyncTests(): Promise<void> {
         : -1;
     ok('getRevenueLast28Days: window is 27 days apart (inclusive 28-day range)', dayDiff === 27);
   }
+
+  // customers_new chart → endpoint and params
+  {
+    let capturedUrl = '';
+    await withMockFetch(
+      (url) => {
+        capturedUrl = url;
+        return jsonResponse({
+          object: 'chart_data',
+          category: 'customers_new',
+          resolution: 'day',
+          values: [
+            ['2026-06-12', 2],
+            ['2026-06-13', 1],
+          ],
+        });
+      },
+      async () => {
+        const client = RevenueCatClient.create({ projectId: 'proj_abc', secretKey: 'sk_test' });
+        const momentum = await client.getNewCustomersDaily({
+          startDate: '2026-06-12',
+          endDate: '2026-06-14',
+        });
+        ok('customers_new fetch: returns projected series', momentum.customers.days.length === 3 && momentum.customers.total === 3);
+      },
+    );
+    ok('customers_new fetch: targets chart endpoint',
+      capturedUrl.startsWith('https://api.revenuecat.com/v2/projects/proj_abc/charts/customers_new?'));
+    ok('customers_new fetch: includes day resolution', capturedUrl.includes('resolution=day'));
+    ok('customers_new fetch: includes start_date', capturedUrl.includes('start_date=2026-06-12'));
+    ok('customers_new fetch: includes end_date', capturedUrl.includes('end_date=2026-06-14'));
+  }
+
+  // 403 on chart endpoint → forbidden_missing_scope for friendly UI fallback
+  await withMockFetch(
+    () => jsonResponse({ message: 'missing charts permission' }, { status: 403 }),
+    async () => {
+      const client = RevenueCatClient.create({ projectId: 'proj_abc', secretKey: 'sk_test' });
+      let kind = '';
+      try {
+        await client.getNewCustomersDaily({
+          startDate: '2026-06-12',
+          endDate: '2026-06-14',
+        });
+      } catch (e) {
+        kind = e instanceof RevenueCatError ? e.kind : 'unknown';
+      }
+      ok('customers_new fetch: 403 maps to missing-scope fallback', kind === 'forbidden_missing_scope');
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

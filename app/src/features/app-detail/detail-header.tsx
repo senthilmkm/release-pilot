@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { ChevronLeft, ExternalLink, HelpCircle } from 'lucide-react-native';
+import { ChevronLeft, ExternalLink, HelpCircle, Sunrise } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 import { StateBadge } from '@/components/state-badge';
@@ -55,6 +55,8 @@ export function AppDetailHeader({
 
   const openInAsc = () =>
     WebBrowser.openBrowserAsync(`https://appstoreconnect.apple.com/apps/${ascAppId}/distribution/ios`);
+  const openTodayBriefing = () =>
+    router.push({ pathname: '../briefing-detail/[id]', params: { id: ascAppId } });
 
   return (
     <View style={styles.container}>
@@ -69,18 +71,33 @@ export function AppDetailHeader({
           <ChevronLeft size={28} color={palette.text} strokeWidth={2.2} />
         </Pressable>
 
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel="Open in App Store Connect"
-          onPress={openInAsc}
-          hitSlop={12}
-          style={[styles.ascButton, { backgroundColor: palette.backgroundElevated }]}
-        >
-          <ExternalLink size={14} color={palette.textSecondary} strokeWidth={2.2} />
-          <ThemedText style={[TypeScale.captionEmph, { color: palette.textSecondary }]}>
-            ASC
-          </ThemedText>
-        </Pressable>
+        <View style={styles.navActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Open Today briefing for ${appName}`}
+            onPress={openTodayBriefing}
+            hitSlop={12}
+            style={[styles.pillButton, { backgroundColor: palette.accentMuted }]}
+          >
+            <Sunrise size={14} color={palette.accent} strokeWidth={2.2} />
+            <ThemedText style={[TypeScale.captionEmph, { color: palette.accent }]}>
+              Today
+            </ThemedText>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Open in App Store Connect"
+            onPress={openInAsc}
+            hitSlop={12}
+            style={[styles.pillButton, { backgroundColor: palette.backgroundElevated }]}
+          >
+            <ExternalLink size={14} color={palette.textSecondary} strokeWidth={2.2} />
+            <ThemedText style={[TypeScale.captionEmph, { color: palette.textSecondary }]}>
+              ASC
+            </ThemedText>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.identityRow}>
@@ -150,7 +167,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   navButton: { width: 44, height: 44, justifyContent: 'center' },
-  ascButton: {
+  navActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  pillButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,

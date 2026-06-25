@@ -56,6 +56,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="briefing-detail"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="releases"
         options={{
           title: 'Releases',

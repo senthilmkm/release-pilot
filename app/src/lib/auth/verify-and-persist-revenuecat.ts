@@ -71,7 +71,8 @@ export async function verifyAndPersistRevenueCat(
 
   // 2. Hit /metrics/overview as the canonical "does this key actually work?"
   //    test. If we get a 200 with parseable JSON, both credentials are good
-  //    AND the key has the right scope (`charts_metrics:overview:read`).
+  //    AND the key has the mandatory overview scope. The detail-screen
+  //    customer chart checks its Charts scope lazily and fails softly.
   const result = await client.verify();
   if (!result.ok) return result;
 

@@ -8,7 +8,7 @@
 
 export type RevenueCatErrorKind =
   | 'unauthorized'             // 401 — secret key invalid / revoked
-  | 'forbidden_missing_scope'  // 403 — key lacks charts_metrics:overview:read
+  | 'forbidden_missing_scope'  // 403 — key lacks the required Charts metrics scope
   | 'project_not_found'        // 404 — project_id doesn't match this key
   | 'rate_limited'             // 429 — exceeded 25 req/min charts domain
   | 'server_error'             // 5xx — RC's side
@@ -53,7 +53,7 @@ export function describeRevenueCatError(err: RevenueCatError): {
       return {
         title: "Key is missing a permission",
         body:
-          "This key works but doesn't have access to revenue metrics. In RevenueCat, edit the key and enable the 'charts_metrics:overview:read' permission.",
+          'This key works but does not have access to revenue metrics. In RevenueCat, go to API keys → Secret API keys → Edit, select API version V2, then set Charts metrics permissions to Read only.',
         actionLabel: 'Open RevenueCat',
       };
     case 'project_not_found':

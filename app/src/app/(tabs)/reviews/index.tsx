@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { AppWindow, Inbox, Star } from 'lucide-react-native';
@@ -27,19 +27,39 @@ import { useAccountsStore } from '@/lib/state/accounts';
 import { FilterBar } from '@/features/reviews/filter-bar';
 import { ReviewRow } from '@/features/reviews/review-row';
 
-const DEFAULT_FILTER: ReviewFilter = { status: 'all', ratingBuckets: [], appIds: [] };
 const ASC_KEYS_URL = 'https://appstoreconnect.apple.com/access/integrations/api';
 
 export default function ReviewsInboxScreen() {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
+  const params = useLocalSearchParams<{
+    appId?: string;
+    rating?: string;
+    status?: ReviewFilter['status'];
+  }>();
 
   const accounts = useAccountsStore((s) => s.accounts);
   const appsQuery = useAllAppsQuery();
   const apps = appsQuery.data?.apps ?? [];
   const reviewsResult = useAllReviewsQuery({ apps });
 
-  const [filter, setFilter] = useState<ReviewFilter>(DEFAULT_FILTER);
+  const hasFilterParams = Boolean(params.appId || params.rating || params.status);
+  const deepLinkFilter = useMemo(
+    () => filterFromParams({
+      appId: params.appId,
+      rating: params.rating,
+      status: params.status,
+    }),
+    [params.appId, params.rating, params.status],
+  );
+  const [filter, setFilter] = useState<ReviewFilter>(deepLinkFilter);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFilterParams) return;
+      setFilter(deepLinkFilter);
+    }, [deepLinkFilter, hasFilterParams]),
+  );
 
   const counts = useMemo(() => countReviews(reviewsResult.reviews), [reviewsResult.reviews]);
   const filtered = useMemo(
@@ -176,6 +196,25 @@ export default function ReviewsInboxScreen() {
       )}
     </SafeAreaView>
   );
+}
+
+function filterFromParams(params: {
+  appId?: string | string[];
+  rating?: string | string[];
+  status?: string | string[];
+}): ReviewFilter {
+  const appId = singleParam(params.appId);
+  const rating = singleParam(params.rating);
+  const status = singleParam(params.status);
+  return {
+    status: status === 'needs_reply' || status === 'replied' ? status : 'all',
+    ratingBuckets: rating === 'negative' ? ['negative'] : [],
+    appIds: appId ? [appId] : [],
+  };
+}
+
+function singleParam<T extends string>(value: T | T[] | undefined): T | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function Header({ palette }: { palette: typeof Colors.light | typeof Colors.dark }) {

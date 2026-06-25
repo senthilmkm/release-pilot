@@ -38,8 +38,9 @@ type Stage =
  * Validation strategy:
  *  - Soft-validate the projectId (non-empty) and secret (starts with "sk_")
  *  - Hard-validate by hitting `/metrics/overview` on tap of "Verify".
- *    This is the only test that catches wrong-scope keys, mismatched
- *    project/key pairs, and revoked keys.
+ *    This catches mismatched project/key pairs, revoked keys, and the
+ *    mandatory overview scope. The optional 14-day chart is checked
+ *    lazily on the Today detail screen so older keys fail softly there.
  */
 export default function RevenueCatPasteScreen() {
   const params = useLocalSearchParams<{
@@ -142,9 +143,9 @@ export default function RevenueCatPasteScreen() {
             </ThemedText>
             <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
               <ThemedText style={{ color: palette.text, fontWeight: '600' }}>Secret Key:</ThemedText>{' '}
-              Project Settings → API keys → + New secret API key → set
-              version to <ThemedText style={{ fontWeight: '600' }}>V2</ThemedText> and enable the
-              permission <ThemedText style={{ fontWeight: '600' }}>charts_metrics:overview:read</ThemedText>.
+              Project Settings → API keys → Secret API keys → Edit or + New secret API key → set API
+              version to <ThemedText style={{ fontWeight: '600' }}>V2</ThemedText>. Under Charts
+              metrics permissions, set all permission types to Read only.
             </ThemedText>
             <Pressable
               accessibilityRole="link"

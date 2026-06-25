@@ -2,7 +2,11 @@ import { useEffect } from 'react';
 import { useQueries } from '@tanstack/react-query';
 
 import { RevenueCatClient } from './revenuecat-client';
-import type { RevenueCatOverview } from './revenuecat-types';
+import type {
+  RevenueCatCustomerMomentum,
+  RevenueCatOverview,
+  RevenueCatSubscriptionMomentum,
+} from './revenuecat-types';
 import { toRevenueCatError } from './revenuecat-errors';
 import { loadRevenueCatSecret } from '@/lib/auth/revenuecat-credentials';
 import {
@@ -27,6 +31,8 @@ import {
 export const rcKeys = {
   all: ['rc'] as const,
   overview: (ascAppId: string) => ['rc', 'overview', ascAppId] as const,
+  customersNew14d: (ascAppId: string) => ['rc', 'customers-new-14d', ascAppId] as const,
+  subscriptionMomentum14d: (ascAppId: string) => ['rc', 'subscription-momentum-14d', ascAppId] as const,
 };
 
 const STALE_TIME_MS = 5 * 60 * 1000; // 5 minutes
@@ -64,6 +70,34 @@ async function fetchOverview(meta: AppRevenueCatMeta): Promise<RevenueCatOvervie
   return preciseRevenue !== null
     ? { ...overview, revenueLast28Days: preciseRevenue }
     : overview;
+}
+
+async function fetchCustomerMomentum(meta: AppRevenueCatMeta): Promise<RevenueCatCustomerMomentum> {
+  const secret = await loadRevenueCatSecret(meta.ascAppId);
+  if (!secret) {
+    throw new Error(
+      `No RevenueCat secret in keychain for app ${meta.ascAppId}. Did the user disconnect?`,
+    );
+  }
+  const client = RevenueCatClient.create({
+    projectId: meta.projectId,
+    secretKey: secret,
+  });
+  return client.getNewCustomersLast14Days();
+}
+
+async function fetchSubscriptionMomentum(meta: AppRevenueCatMeta): Promise<RevenueCatSubscriptionMomentum> {
+  const secret = await loadRevenueCatSecret(meta.ascAppId);
+  if (!secret) {
+    throw new Error(
+      `No RevenueCat secret in keychain for app ${meta.ascAppId}. Did the user disconnect?`,
+    );
+  }
+  const client = RevenueCatClient.create({
+    projectId: meta.projectId,
+    secretKey: secret,
+  });
+  return client.getSubscriptionMomentumLast14Days();
 }
 
 /**
@@ -145,5 +179,95 @@ export function useRevenueOverviewsQuery(): {
     byAppId,
     errors,
     refetch: () => results.forEach((r) => void r.refetch()),
+  };
+}
+
+export function useRevenueCustomerMomentumQuery(ascAppId: string | undefined): {
+  isLoading: boolean;
+  isFetching: boolean;
+  data: RevenueCatCustomerMomentum | undefined;
+  errorKind: ReturnType<typeof toRevenueCatError>['kind'] | null;
+  refetch: () => void;
+} {
+  const rcByAppId = useAppRevenueCatStore((s) => s.byAscAppId);
+  const meta = ascAppId ? rcByAppId[ascAppId] : undefined;
+
+  const [result] = useQueries({
+    queries: [
+      {
+        queryKey: ascAppId ? rcKeys.customersNew14d(ascAppId) : [...rcKeys.all, 'customers-new-14d', 'missing'],
+        staleTime: STALE_TIME_MS,
+        gcTime: GC_TIME_MS,
+        enabled: Boolean(meta?.verified),
+        queryFn: () => {
+          if (!meta) {
+            throw new Error('RevenueCat is not connected for this app.');
+          }
+          return fetchCustomerMomentum(meta);
+        },
+        retry: (failureCount: number, error: unknown) => {
+          const kind = toRevenueCatError(error).kind;
+          if (kind === 'unauthorized' || kind === 'forbidden_missing_scope') {
+            return false;
+          }
+          return failureCount < 1;
+        },
+      },
+    ],
+  });
+
+  return {
+    isLoading: result?.isLoading ?? false,
+    isFetching: result?.isFetching ?? false,
+    data: result?.data,
+    errorKind: result?.isError ? toRevenueCatError(result.error).kind : null,
+    refetch: () => {
+      if (result) void result.refetch();
+    },
+  };
+}
+
+export function useRevenueSubscriptionMomentumQuery(ascAppId: string | undefined): {
+  isLoading: boolean;
+  isFetching: boolean;
+  data: RevenueCatSubscriptionMomentum | undefined;
+  errorKind: ReturnType<typeof toRevenueCatError>['kind'] | null;
+  refetch: () => void;
+} {
+  const rcByAppId = useAppRevenueCatStore((s) => s.byAscAppId);
+  const meta = ascAppId ? rcByAppId[ascAppId] : undefined;
+
+  const [result] = useQueries({
+    queries: [
+      {
+        queryKey: ascAppId ? rcKeys.subscriptionMomentum14d(ascAppId) : [...rcKeys.all, 'subscription-momentum-14d', 'missing'],
+        staleTime: STALE_TIME_MS,
+        gcTime: GC_TIME_MS,
+        enabled: Boolean(meta?.verified),
+        queryFn: () => {
+          if (!meta) {
+            throw new Error('RevenueCat is not connected for this app.');
+          }
+          return fetchSubscriptionMomentum(meta);
+        },
+        retry: (failureCount: number, error: unknown) => {
+          const kind = toRevenueCatError(error).kind;
+          if (kind === 'unauthorized' || kind === 'forbidden_missing_scope') {
+            return false;
+          }
+          return failureCount < 1;
+        },
+      },
+    ],
+  });
+
+  return {
+    isLoading: result?.isLoading ?? false,
+    isFetching: result?.isFetching ?? false,
+    data: result?.data,
+    errorKind: result?.isError ? toRevenueCatError(result.error).kind : null,
+    refetch: () => {
+      if (result) void result.refetch();
+    },
   };
 }

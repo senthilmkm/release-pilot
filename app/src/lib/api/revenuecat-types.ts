@@ -3,6 +3,7 @@
  *
  * We only model the endpoints we actually use — currently:
  *   - GET /v2/projects/{project_id}/metrics/overview
+ *   - GET /v2/projects/{project_id}/charts/customers_new
  *
  * RevenueCat documents these in https://www.revenuecat.com/docs/api-v2.
  *
@@ -43,6 +44,52 @@ export type RevenueCatOverview = {
   /** When we fetched this snapshot (epoch ms). Drives staleness UI. */
   fetchedAtMs: number;
 };
+
+export type RevenueCatDailyPoint = {
+  /** Calendar day in UTC, `YYYY-MM-DD`. */
+  date: string;
+  /** Metric value for that day. Missing/malformed days are zero-filled. */
+  value: number;
+};
+
+export type RevenueCatTrend = {
+  previousTotal: number;
+  delta: number;
+  deltaPercent: number | null;
+};
+
+export type RevenueCatDailySeries = {
+  /** The rendered daily series. For v1 detail charts this is 14 points. */
+  days: RevenueCatDailyPoint[];
+  /** Sum of `days[].value`. */
+  total: number;
+  /** Total divided by day count. */
+  averagePerDay: number;
+  /** Highest-value day, or `null` when the whole range is zero. */
+  bestDay: RevenueCatDailyPoint | null;
+  fetchedAtMs: number;
+  /** Previous equal-length window, when fetched for trend labels. */
+  trend: RevenueCatTrend | null;
+};
+
+export type RevenueCatCustomerMomentum = {
+  customers: RevenueCatDailySeries;
+};
+
+export type RevenueCatSubscriptionMomentum = {
+  /** `actives_new`: New paying subscriptions, including conversions/resubs/product changes. */
+  newPaidSubscriptions: RevenueCatDailySeries;
+  /** `trials_new`: New trials started in the period. */
+  newTrials: RevenueCatDailySeries;
+  /** `revenue`: Used only for percentage trend labels in UI. */
+  revenue: RevenueCatDailySeries;
+};
+
+export type RevenueCatChartName =
+  | 'customers_new'
+  | 'actives_new'
+  | 'trials_new'
+  | 'revenue';
 
 /**
  * Raw envelope returned by `/v2/projects/{id}/metrics/overview`.
@@ -105,6 +152,27 @@ export type RawRevenueCatRevenueResponse = {
   currency?: string;
   value?: number | string;
   revenue_type?: 'revenue' | 'revenue_net_of_taxes' | 'proceeds';
+};
+
+/**
+ * Response from `/v2/projects/{id}/charts/customers_new`.
+ *
+ * RevenueCat's chart API is intentionally generic: different charts can
+ * shape `values` differently. The projection layer treats this as unknown
+ * and defensively accepts the common forms we have seen/documented:
+ *   - `[timestamp, value]`
+ *   - `[date, ..., value]`
+ *   - `{ date/start_date/timestamp/cohort, value }`
+ */
+export type RawRevenueCatChartResponse = {
+  object?: string;
+  category?: string;
+  display_name?: string;
+  start_date?: string | number;
+  end_date?: string | number;
+  resolution?: 'hour' | 'day' | 'week' | 'month' | string;
+  values?: unknown;
+  summary?: unknown;
 };
 
 /** Choice of revenue definition for the `/metrics/revenue` endpoint. */
