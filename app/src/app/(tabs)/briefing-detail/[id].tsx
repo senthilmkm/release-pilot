@@ -42,7 +42,7 @@ import type {
 } from '@/lib/api/revenuecat-types';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
 
-type MomentumHelpTopic = 'customers' | 'subscriptions';
+type MomentumHelpTopic = 'customers' | 'subscriptions' | 'revenue';
 
 export default function BriefingAppDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -187,6 +187,15 @@ export default function BriefingAppDetailScreen() {
           <>
             <TodaysSignal card={card} />
             <RevenueHealth card={card} hasRcConnected={hasRcConnected} />
+            <RevenueTrend
+              currency={card.revenue.connected ? card.revenue.currency : 'USD'}
+              hasRcConnected={hasRcConnected}
+              revenue={subscriptionMomentumQuery.data?.revenue}
+              isLoading={subscriptionMomentumQuery.isLoading || subscriptionMomentumQuery.isFetching}
+              errorKind={subscriptionMomentumQuery.errorKind}
+              onRetry={subscriptionMomentumQuery.refetch}
+              onOpenHelp={() => setHelpTopic('revenue')}
+            />
             <CustomerMomentum
               appName={card.appName}
               hasRcConnected={hasRcConnected}
@@ -370,6 +379,136 @@ function RevenueHealth({
       />
       <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
         {card.revenue.stale ? 'Cached RevenueCat data' : 'Live RevenueCat snapshot'} · updated {formatRelative(card.revenue.fetchedAtMs)}
+      </ThemedText>
+    </SectionCard>
+  );
+}
+
+function RevenueTrend({
+  currency,
+  hasRcConnected,
+  revenue,
+  isLoading,
+  errorKind,
+  onRetry,
+  onOpenHelp,
+}: {
+  currency: string;
+  hasRcConnected: boolean;
+  revenue: RevenueCatDailySeries | undefined;
+  isLoading: boolean;
+  errorKind: string | null;
+  onRetry: () => void;
+  onOpenHelp: () => void;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+
+  if (!hasRcConnected) {
+    return (
+      <SectionCard
+        title="Revenue Trend"
+        icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          Connect RevenueCat to compare this app’s recent revenue against the previous 14 days.
+        </ThemedText>
+      </SectionCard>
+    );
+  }
+
+  if (errorKind === 'forbidden_missing_scope') {
+    return (
+      <SectionCard
+        title="Revenue Trend"
+        icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
+        <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
+          <DollarSign size={18} color={palette.accent} strokeWidth={2.4} />
+          <ThemedText style={[TypeScale.subhead, { color: palette.text, flex: 1 }]}>
+            Enable Charts permission to see revenue trend.
+          </ThemedText>
+        </View>
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          In RevenueCat, go to API keys → Secret API keys → Edit, select API version V2, then set Charts metrics permissions to Read only.
+        </ThemedText>
+      </SectionCard>
+    );
+  }
+
+  if (errorKind) {
+    return (
+      <SectionCard
+        title="Revenue Trend"
+        icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
+        <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+          Couldn’t load the revenue trend chart.
+        </ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry revenue trend chart"
+          onPress={onRetry}
+          style={({ pressed }) => [styles.secondaryButton, { borderColor: palette.border, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <ThemedText style={[TypeScale.subhead, { color: palette.accent }]}>Retry</ThemedText>
+        </Pressable>
+      </SectionCard>
+    );
+  }
+
+  if (isLoading || !revenue) {
+    return (
+      <SectionCard
+        title="Revenue Trend"
+        icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator color={palette.accent} />
+          <ThemedText style={[TypeScale.subhead, { color: palette.textSecondary }]}>
+            Loading revenue trend…
+          </ThemedText>
+        </View>
+      </SectionCard>
+    );
+  }
+
+  const previousTotal = revenue.trend?.previousTotal ?? 0;
+  const delta = revenue.trend?.delta ?? revenue.total - previousTotal;
+  const bothPeriodsZero = revenue.total === 0 && previousTotal === 0;
+
+  return (
+    <SectionCard
+      title="Revenue Trend"
+      icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
+      onHelpPress={onOpenHelp}
+    >
+      <View style={styles.momentumSummary}>
+        <MetricPill label="Last 14d" value={formatMoney(revenue.total, currency)} />
+        <MetricPill label="Previous 14d" value={formatMoney(previousTotal, currency)} />
+        <MetricPill
+          label="Best revenue day"
+          value={revenue.bestDay ? `${formatMoney(revenue.bestDay.value, currency)} · ${formatShortDate(revenue.bestDay.date)}` : '—'}
+        />
+      </View>
+      {bothPeriodsZero ? (
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          No RevenueCat revenue recorded in the last 28 days yet.
+        </ThemedText>
+      ) : (
+        <>
+          <ThemedText style={[TypeScale.body, { color: palette.text }]}>
+            Revenue is {delta >= 0 ? 'up' : 'down'} {formatMoney(Math.abs(delta), currency)} vs the previous 14 days.
+          </ThemedText>
+          <TrendCaption label="Revenue" series={revenue} />
+        </>
+      )}
+      <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+        Last 14 days · updated {formatRelative(revenue.fetchedAtMs)}
       </ThemedText>
     </SectionCard>
   );
@@ -927,6 +1066,7 @@ function MomentumHelpModal({
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
   const isCustomers = topic === 'customers';
+  const isRevenue = topic === 'revenue';
 
   return (
     <Modal
@@ -953,7 +1093,11 @@ function MomentumHelpModal({
           <SafeAreaView edges={['bottom']}>
             <View style={styles.modalHeader}>
               <ThemedText style={[TypeScale.title3, { color: palette.text }]}>
-                {isCustomers ? 'About Customer Momentum' : 'About Subscription Momentum'}
+                {isRevenue
+                  ? 'About Revenue Trend'
+                  : isCustomers
+                    ? 'About Customer Momentum'
+                    : 'About Subscription Momentum'}
               </ThemedText>
               <Pressable
                 accessibilityRole="button"
@@ -966,7 +1110,22 @@ function MomentumHelpModal({
               </Pressable>
             </View>
 
-            {isCustomers ? (
+            {isRevenue ? (
+              <>
+                <HelpSection
+                  title="Gross revenue chart"
+                  body="Revenue Trend uses RevenueCat’s revenue chart for gross revenue over daily periods. It is not App Store proceeds after Apple commission, tax, or refunds unless your RevenueCat chart settings define it that way."
+                />
+                <HelpSection
+                  title="Current vs previous 14 days"
+                  body="Last 14d sums the visible 14-day window. Previous 14d sums the equal-length window immediately before it. The change amount and percent compare those two totals."
+                />
+                <HelpSection
+                  title="Best revenue day"
+                  body="Best revenue day is the highest daily revenue value in the visible 14-day window. If every day is zero, Release Pilot shows a dash."
+                />
+              </>
+            ) : isCustomers ? (
               <>
                 <HelpSection
                   title="New customers are not downloads"

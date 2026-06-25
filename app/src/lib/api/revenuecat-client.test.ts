@@ -554,6 +554,61 @@ async function runAsyncTests(): Promise<void> {
       ok('customers_new fetch: 403 maps to missing-scope fallback', kind === 'forbidden_missing_scope');
     },
   );
+
+  // revenue chart trend → current 14d vs previous 14d
+  {
+    const capturedUrls: string[] = [];
+    await withMockFetch(
+      (url) => {
+        capturedUrls.push(url);
+        return jsonResponse({
+          object: 'chart_data',
+          category: 'revenue',
+          resolution: 'day',
+          values: capturedUrls.length === 1
+            ? [[10], [5]]
+            : [[3], [2]],
+        });
+      },
+      async () => {
+        const client = RevenueCatClient.create({ projectId: 'proj_abc', secretKey: 'sk_test' });
+        const revenue = await client.getRevenueLast14DaysTrend();
+        ok('revenue trend: current total sums current window', revenue.total === 15);
+        ok('revenue trend: previous total sums previous window', revenue.trend?.previousTotal === 5);
+        ok('revenue trend: delta calculated', revenue.trend?.delta === 10);
+        ok('revenue trend: percent change calculated', revenue.trend?.deltaPercent === 2);
+        ok('revenue trend: best day calculated', revenue.bestDay?.value === 10);
+      },
+    );
+    ok('revenue trend: fetches current and previous windows', capturedUrls.length === 2);
+    ok('revenue trend: targets revenue chart', capturedUrls.every((url) => url.includes('/charts/revenue?')));
+  }
+
+  // revenue chart trend → negative delta when previous period was higher
+  {
+    let calls = 0;
+    await withMockFetch(
+      () => {
+        calls += 1;
+        return jsonResponse({
+          object: 'chart_data',
+          category: 'revenue',
+          resolution: 'day',
+          values: calls === 1
+            ? [[4], [1]]
+            : [[10], [10]],
+        });
+      },
+      async () => {
+        const client = RevenueCatClient.create({ projectId: 'proj_abc', secretKey: 'sk_test' });
+        const revenue = await client.getRevenueLast14DaysTrend();
+        ok('revenue trend: down current total calculated', revenue.total === 5);
+        ok('revenue trend: down previous total calculated', revenue.trend?.previousTotal === 20);
+        ok('revenue trend: negative delta calculated', revenue.trend?.delta === -15);
+        ok('revenue trend: negative percent calculated', revenue.trend?.deltaPercent === -0.75);
+      },
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
