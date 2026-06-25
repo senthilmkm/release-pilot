@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -11,10 +11,12 @@ import {
   CheckCircle2,
   DollarSign,
   ExternalLink,
+  HelpCircle,
   Lock,
   MessageSquare,
   Sparkles,
   TrendingUp,
+  X,
 } from 'lucide-react-native';
 
 import { EmptyState } from '@/components/empty-state';
@@ -40,6 +42,8 @@ import type {
 } from '@/lib/api/revenuecat-types';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
 
+type MomentumHelpTopic = 'customers' | 'subscriptions';
+
 export default function BriefingAppDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const scheme = useResolvedScheme();
@@ -60,6 +64,7 @@ export default function BriefingAppDetailScreen() {
   const [nowMs] = useState(() => Date.now());
   const [previousSnapshot] = useState(() => loadLastBriefingSnapshot());
   const [refreshing, setRefreshing] = useState(false);
+  const [helpTopic, setHelpTopic] = useState<MomentumHelpTopic | null>(null);
 
   const reviewsByAppId = useMemo(() => {
     const m = new Map<string, ReviewSummary[]>();
@@ -189,6 +194,7 @@ export default function BriefingAppDetailScreen() {
               isLoading={momentumQuery.isLoading || momentumQuery.isFetching}
               errorKind={momentumQuery.errorKind}
               onRetry={momentumQuery.refetch}
+              onOpenHelp={() => setHelpTopic('customers')}
             />
             <SubscriptionMomentum
               appName={card.appName}
@@ -197,6 +203,7 @@ export default function BriefingAppDetailScreen() {
               isLoading={subscriptionMomentumQuery.isLoading || subscriptionMomentumQuery.isFetching}
               errorKind={subscriptionMomentumQuery.errorKind}
               onRetry={subscriptionMomentumQuery.refetch}
+              onOpenHelp={() => setHelpTopic('subscriptions')}
             />
             <ReviewAttention card={card} />
             <NextActions card={card} hasRcConnected={hasRcConnected} />
@@ -209,6 +216,12 @@ export default function BriefingAppDetailScreen() {
           />
         )}
       </ScrollView>
+
+      <MomentumHelpModal
+        topic={helpTopic}
+        visible={helpTopic !== null}
+        onDismiss={() => setHelpTopic(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -369,6 +382,7 @@ function CustomerMomentum({
   isLoading,
   errorKind,
   onRetry,
+  onOpenHelp,
 }: {
   appName: string;
   hasRcConnected: boolean;
@@ -376,13 +390,18 @@ function CustomerMomentum({
   isLoading: boolean;
   errorKind: string | null;
   onRetry: () => void;
+  onOpenHelp: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
 
   if (!hasRcConnected) {
     return (
-      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Customer Momentum"
+        icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to see daily new customers for {appName}.
         </ThemedText>
@@ -392,7 +411,11 @@ function CustomerMomentum({
 
   if (errorKind === 'forbidden_missing_scope') {
     return (
-      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Customer Momentum"
+        icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <BarChart3 size={18} color={palette.accent} strokeWidth={2.4} />
           <ThemedText style={[TypeScale.subhead, { color: palette.text, flex: 1 }]}>
@@ -408,7 +431,11 @@ function CustomerMomentum({
 
   if (errorKind) {
     return (
-      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Customer Momentum"
+        icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the 14-day customer chart.
         </ThemedText>
@@ -426,7 +453,11 @@ function CustomerMomentum({
 
   if (isLoading || !momentum) {
     return (
-      <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Customer Momentum"
+        icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
           <ThemedText style={[TypeScale.subhead, { color: palette.textSecondary }]}>
@@ -441,7 +472,11 @@ function CustomerMomentum({
   const max = Math.max(...series.days.map((d) => d.value), 1);
 
   return (
-    <SectionCard title="Customer Momentum" icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}>
+    <SectionCard
+      title="Customer Momentum"
+      icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
+      onHelpPress={onOpenHelp}
+    >
       <View style={styles.momentumSummary}>
         <MetricPill label="14-day total" value={String(series.total)} />
         <MetricPill label="Avg / day" value={series.averagePerDay.toFixed(1)} />
@@ -451,6 +486,14 @@ function CustomerMomentum({
         />
       </View>
       <TrendCaption label="New customers" series={series} />
+      {series.total === 0 && (
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          No newly seen RevenueCat customers in this 14-day window. That can simply mean no new users opened the app with RevenueCat active during the period.
+        </ThemedText>
+      )}
+      <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+        Last 14 days · updated {formatRelative(series.fetchedAtMs)}
+      </ThemedText>
       <View style={styles.barList}>
         {series.days.map((day) => (
           <View key={day.date} style={styles.barRow}>
@@ -486,6 +529,7 @@ function SubscriptionMomentum({
   isLoading,
   errorKind,
   onRetry,
+  onOpenHelp,
 }: {
   appName: string;
   hasRcConnected: boolean;
@@ -493,13 +537,18 @@ function SubscriptionMomentum({
   isLoading: boolean;
   errorKind: string | null;
   onRetry: () => void;
+  onOpenHelp: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
 
   if (!hasRcConnected) {
     return (
-      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Subscription Momentum"
+        icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to see paid subscription and trial momentum for {appName}.
         </ThemedText>
@@ -509,7 +558,11 @@ function SubscriptionMomentum({
 
   if (errorKind === 'forbidden_missing_scope') {
     return (
-      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Subscription Momentum"
+        icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <TrendingUp size={18} color={palette.accent} strokeWidth={2.4} />
           <ThemedText style={[TypeScale.subhead, { color: palette.text, flex: 1 }]}>
@@ -525,7 +578,11 @@ function SubscriptionMomentum({
 
   if (errorKind) {
     return (
-      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Subscription Momentum"
+        icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the 14-day subscription chart.
         </ThemedText>
@@ -543,7 +600,11 @@ function SubscriptionMomentum({
 
   if (isLoading || !momentum) {
     return (
-      <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+      <SectionCard
+        title="Subscription Momentum"
+        icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
+        onHelpPress={onOpenHelp}
+      >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
           <ThemedText style={[TypeScale.subhead, { color: palette.textSecondary }]}>
@@ -555,7 +616,11 @@ function SubscriptionMomentum({
   }
 
   return (
-    <SectionCard title="Subscription Momentum" icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}>
+    <SectionCard
+      title="Subscription Momentum"
+      icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
+      onHelpPress={onOpenHelp}
+    >
       <View style={styles.momentumSummary}>
         <MetricPill label="New paid subs" value={String(momentum.newPaidSubscriptions.total)} />
         <MetricPill label="Trial starts" value={String(momentum.newTrials.total)} />
@@ -571,6 +636,14 @@ function SubscriptionMomentum({
       <TrendCaption label="Paid subscriptions" series={momentum.newPaidSubscriptions} />
       <TrendCaption label="Trial starts" series={momentum.newTrials} />
       <TrendCaption label="Revenue" series={momentum.revenue} />
+      {momentum.newPaidSubscriptions.total === 0 && momentum.newTrials.total === 0 && (
+        <ThemedText style={[TypeScale.footnote, { color: palette.textSecondary }]}>
+          No new trials or paid-subscription activations in this 14-day window. Existing subscribers are still reflected in Active subs on the Today card.
+        </ThemedText>
+      )}
+      <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+        Last 14 days · updated {formatRelative(momentum.newPaidSubscriptions.fetchedAtMs)}
+      </ThemedText>
       <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
         Paid subs use RevenueCat’s actives_new chart: new paying subscriptions, including trial conversions, resubscriptions, and product changes.
       </ThemedText>
@@ -761,10 +834,12 @@ function deriveActions(card: AppBriefingCard, hasRcConnected: boolean, accentCol
 function SectionCard({
   title,
   icon,
+  onHelpPress,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
+  onHelpPress?: () => void;
   children: React.ReactNode;
 }) {
   const scheme = useResolvedScheme();
@@ -773,7 +848,19 @@ function SectionCard({
     <View style={[styles.sectionCard, { backgroundColor: palette.backgroundElevated, borderColor: palette.border }]}>
       <View style={styles.sectionHeader}>
         <View style={[styles.sectionIcon, { backgroundColor: palette.accentMuted }]}>{icon}</View>
-        <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>{title}</ThemedText>
+        <ThemedText style={[TypeScale.bodyEmph, { color: palette.text, flex: 1 }]}>{title}</ThemedText>
+        {onHelpPress && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`About ${title}`}
+            accessibilityHint="Explains what these metrics mean"
+            onPress={onHelpPress}
+            hitSlop={10}
+            style={styles.helpButton}
+          >
+            <HelpCircle size={17} color={palette.textTertiary} strokeWidth={2.2} />
+          </Pressable>
+        )}
       </View>
       {children}
     </View>
@@ -825,6 +912,108 @@ function TrendCaption({ label, series }: { label: string; series: RevenueCatDail
     <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
       {text}
     </ThemedText>
+  );
+}
+
+function MomentumHelpModal({
+  topic,
+  visible,
+  onDismiss,
+}: {
+  topic: MomentumHelpTopic | null;
+  visible: boolean;
+  onDismiss: () => void;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  const isCustomers = topic === 'customers';
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onDismiss}
+      accessibilityViewIsModal
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss"
+        onPress={onDismiss}
+        style={styles.modalScrim}
+      >
+        <Pressable
+          accessibilityRole="none"
+          onPress={() => undefined}
+          style={[
+            styles.modalCard,
+            { backgroundColor: palette.background, borderColor: palette.border },
+          ]}
+        >
+          <SafeAreaView edges={['bottom']}>
+            <View style={styles.modalHeader}>
+              <ThemedText style={[TypeScale.title3, { color: palette.text }]}>
+                {isCustomers ? 'About Customer Momentum' : 'About Subscription Momentum'}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={onDismiss}
+                hitSlop={12}
+                style={styles.closeButton}
+              >
+                <X size={20} color={palette.textSecondary} strokeWidth={2.2} />
+              </Pressable>
+            </View>
+
+            {isCustomers ? (
+              <>
+                <HelpSection
+                  title="New customers are not downloads"
+                  body="This uses RevenueCat’s customers_new chart: app user IDs first seen by RevenueCat. It usually means new users who opened the app with RevenueCat initialized, not App Store downloads and not purchases."
+                />
+                <HelpSection
+                  title="Best day"
+                  body="Best day is the highest daily new-customer count in the visible 14-day window. If every day is zero, Release Pilot shows a dash instead of inventing a best day."
+                />
+                <HelpSection
+                  title="Trend labels"
+                  body="Trend labels compare the current 14 days against the previous 14 days. When the previous period was zero, the label says new this period or flat instead of showing a misleading infinite percentage."
+                />
+              </>
+            ) : (
+              <>
+                <HelpSection
+                  title="New paid subs"
+                  body="This uses RevenueCat’s actives_new chart: new paying subscription activations, including trial conversions, resubscriptions, and product changes."
+                />
+                <HelpSection
+                  title="Trial starts"
+                  body="This uses RevenueCat’s trials_new chart: new subscription trials started during the 14-day window."
+                />
+                <HelpSection
+                  title="Best paid-sub day"
+                  body="Best paid-sub day is the day with the highest actives_new count in the visible 14-day window. Existing active subscribers are not counted here; they stay in Active subs on the Today card."
+                />
+              </>
+            )}
+          </SafeAreaView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function HelpSection({ title, body }: { title: string; body: string }) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  return (
+    <View style={styles.helpSection}>
+      <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>{title}</ThemedText>
+      <ThemedText style={[TypeScale.body, styles.helpBody, { color: palette.textSecondary }]}>
+        {body}
+      </ThemedText>
+    </View>
   );
 }
 
@@ -918,6 +1107,13 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  helpButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -Spacing.two,
   },
   signalCallout: {
     flexDirection: 'row',
@@ -1021,6 +1217,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.three,
     padding: Spacing.four,
+  },
+  modalScrim: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    borderTopLeftRadius: Radii.xl,
+    borderTopRightRadius: Radii.xl,
+    paddingHorizontal: Spacing.five,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.three,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpSection: {
+    gap: Spacing.one,
+    marginTop: Spacing.three,
+  },
+  helpBody: {
+    lineHeight: 22,
   },
   lockBubble: {
     width: 72,
