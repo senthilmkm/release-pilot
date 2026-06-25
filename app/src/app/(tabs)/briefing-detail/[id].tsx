@@ -34,6 +34,7 @@ import {
 } from '@/lib/api/revenuecat-queries';
 import { buildBriefing, type AppBriefingCard } from '@/lib/domain/briefing';
 import { loadLastBriefingSnapshot } from '@/lib/domain/briefing-snapshot-store';
+import { buildTodayReadout, type TodayReadout } from '@/lib/domain/today-readout';
 import type { ReviewSummary } from '@/lib/domain/review-feed';
 import type {
   RevenueCatCustomerMomentum,
@@ -100,6 +101,17 @@ export default function BriefingAppDetailScreen() {
     nowMs,
     id,
   ]);
+  const readout = useMemo(
+    () =>
+      card
+        ? buildTodayReadout({
+            card,
+            customerMomentum: momentumQuery.data,
+            subscriptionMomentum: subscriptionMomentumQuery.data,
+          })
+        : null,
+    [card, momentumQuery.data, subscriptionMomentumQuery.data],
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -185,6 +197,7 @@ export default function BriefingAppDetailScreen() {
           </View>
         ) : card ? (
           <>
+            {readout && <TodayReadoutCard readout={readout} />}
             <TodaysSignal card={card} />
             <RevenueHealth card={card} hasRcConnected={hasRcConnected} />
             <RevenueTrend
@@ -315,6 +328,36 @@ function TodaysSignal({ card }: { card: AppBriefingCard }) {
         </ThemedText>
       )}
     </SectionCard>
+  );
+}
+
+function TodayReadoutCard({ readout }: { readout: TodayReadout }) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  return (
+    <View
+      style={[
+        styles.readoutCard,
+        { backgroundColor: palette.accentMuted, borderColor: palette.accent },
+      ]}
+    >
+      <View style={styles.readoutHeader}>
+        <Sparkles size={17} color={palette.accent} strokeWidth={2.4} />
+        <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+          {readout.headline}
+        </ThemedText>
+      </View>
+      <View style={styles.readoutList}>
+        {readout.bullets.map((line) => (
+          <View key={line} style={styles.readoutLine}>
+            <View style={[styles.readoutDot, { backgroundColor: palette.accent }]} />
+            <ThemedText style={[TypeScale.footnote, { color: palette.text, flex: 1 }]}>
+              {line}
+            </ThemedText>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -1248,6 +1291,31 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  readoutCard: {
+    borderRadius: Radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  readoutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  readoutList: {
+    gap: Spacing.one + 2,
+  },
+  readoutLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  readoutDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    marginTop: 7,
   },
   sectionCard: {
     borderRadius: Radii.lg,
