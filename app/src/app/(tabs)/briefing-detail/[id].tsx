@@ -34,6 +34,11 @@ import {
 } from '@/lib/api/revenuecat-queries';
 import { buildBriefing, type AppBriefingCard } from '@/lib/domain/briefing';
 import { loadLastBriefingSnapshot } from '@/lib/domain/briefing-snapshot-store';
+import {
+  buildTodayActionQueue,
+  type TodayAction,
+  type TodayActionKind,
+} from '@/lib/domain/today-action-queue';
 import { buildTodayReadout, type TodayReadout } from '@/lib/domain/today-readout';
 import type { ReviewSummary } from '@/lib/domain/review-feed';
 import type {
@@ -44,6 +49,7 @@ import type {
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
 
 type MomentumHelpTopic = 'customers' | 'subscriptions' | 'revenue';
+const REVENUECAT_DASHBOARD_URL = 'https://app.revenuecat.com';
 
 export default function BriefingAppDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -66,6 +72,7 @@ export default function BriefingAppDetailScreen() {
   const [previousSnapshot] = useState(() => loadLastBriefingSnapshot());
   const [refreshing, setRefreshing] = useState(false);
   const [helpTopic, setHelpTopic] = useState<MomentumHelpTopic | null>(null);
+  const hasRcConnected = Boolean(id && rcMeta[id]?.verified);
 
   const reviewsByAppId = useMemo(() => {
     const m = new Map<string, ReviewSummary[]>();
@@ -111,6 +118,18 @@ export default function BriefingAppDetailScreen() {
           })
         : null,
     [card, momentumQuery.data, subscriptionMomentumQuery.data],
+  );
+  const actionQueue = useMemo(
+    () =>
+      card
+        ? buildTodayActionQueue({
+            card,
+            hasRcConnected,
+            customerMomentum: momentumQuery.data,
+            subscriptionMomentum: subscriptionMomentumQuery.data,
+          })
+        : [],
+    [card, hasRcConnected, momentumQuery.data, subscriptionMomentumQuery.data],
   );
 
   const onRefresh = useCallback(async () => {
@@ -172,8 +191,6 @@ export default function BriefingAppDetailScreen() {
     );
   }
 
-  const hasRcConnected = Boolean(id && rcMeta[id]?.verified);
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
       <ScrollView
@@ -198,6 +215,10 @@ export default function BriefingAppDetailScreen() {
         ) : card ? (
           <>
             {readout && <TodayReadoutCard readout={readout} />}
+            <ActionQueueCard
+              actions={actionQueue}
+              card={card}
+            />
             <TodaysSignal card={card} />
             <RevenueHealth card={card} hasRcConnected={hasRcConnected} />
             <RevenueTrend
@@ -359,6 +380,129 @@ function TodayReadoutCard({ readout }: { readout: TodayReadout }) {
       </View>
     </View>
   );
+}
+
+function ActionQueueCard({
+  actions,
+  card,
+}: {
+  actions: TodayAction[];
+  card: AppBriefingCard;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+
+  return (
+    <View
+      style={[
+        styles.actionQueueCard,
+        { backgroundColor: palette.backgroundElevated, borderColor: palette.border },
+      ]}
+    >
+      <View style={styles.actionQueueHeader}>
+        <View style={[styles.sectionIcon, { backgroundColor: palette.accentMuted }]}>
+          <CheckCircle2 size={17} color={palette.accent} strokeWidth={2.3} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>
+            Action Queue
+          </ThemedText>
+          <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+            Ranked next steps for this app
+          </ThemedText>
+        </View>
+      </View>
+
+      <View style={styles.actionQueueList}>
+        {actions.map((action, index) => (
+          <ActionQueueRow
+            key={action.id}
+            action={action}
+            index={index}
+            card={card}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function ActionQueueRow({
+  action,
+  index,
+  card,
+}: {
+  action: TodayAction;
+  index: number;
+  card: AppBriefingCard;
+}) {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  const interactive = action.kind !== 'none';
+  const onPress = () => handleActionPress(action.kind, card);
+
+  return (
+    <Pressable
+      accessibilityRole={interactive ? 'button' : 'text'}
+      accessibilityLabel={`${index + 1}. ${action.title}. ${action.detail}`}
+      accessibilityHint={interactive ? 'Opens the next step' : undefined}
+      disabled={!interactive}
+      onPress={interactive ? onPress : undefined}
+      style={({ pressed }) => [
+        styles.actionQueueRow,
+        { backgroundColor: palette.backgroundSelected, opacity: pressed ? 0.75 : 1 },
+      ]}
+    >
+      <View style={[styles.actionQueueNumber, { backgroundColor: palette.accentMuted }]}>
+        <ThemedText style={[TypeScale.captionEmph, { color: palette.accent }]}>
+          {index + 1}
+        </ThemedText>
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <ThemedText style={[TypeScale.subhead, { color: palette.text }]}>
+          {action.title}
+        </ThemedText>
+        <ThemedText style={[TypeScale.caption, { color: palette.textSecondary }]}>
+          {action.detail}
+        </ThemedText>
+      </View>
+      {interactive && <ArrowRight size={16} color={palette.textTertiary} strokeWidth={2.2} />}
+    </Pressable>
+  );
+}
+
+function handleActionPress(kind: TodayActionKind, card: AppBriefingCard) {
+  if (kind === 'reply_reviews') {
+    router.push({
+      pathname: '/(tabs)/reviews',
+      params: {
+        appId: card.ascAppId,
+        rating: 'negative',
+        status: 'needs_reply',
+      },
+    });
+    return;
+  }
+  if (kind === 'open_asc') {
+    void WebBrowser.openBrowserAsync(
+      `https://appstoreconnect.apple.com/apps/${card.ascAppId}/appstore/ios`,
+    );
+    return;
+  }
+  if (kind === 'open_release_details') {
+    router.push({ pathname: '/(tabs)/releases/[id]', params: { id: card.ascAppId } });
+    return;
+  }
+  if (kind === 'open_revenuecat') {
+    void WebBrowser.openBrowserAsync(REVENUECAT_DASHBOARD_URL);
+    return;
+  }
+  if (kind === 'connect_revenuecat') {
+    router.push({
+      pathname: '/(onboarding)/revenuecat-paste',
+      params: { ascAppId: card.ascAppId, appName: card.appName, bundleId: card.bundleId },
+    });
+  }
 }
 
 function RevenueHealth({
@@ -1316,6 +1460,36 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
     marginTop: 7,
+  },
+  actionQueueCard: {
+    borderRadius: Radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  actionQueueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  actionQueueList: {
+    gap: Spacing.two,
+  },
+  actionQueueRow: {
+    minHeight: 56,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  actionQueueNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionCard: {
     borderRadius: Radii.lg,
