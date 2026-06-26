@@ -9,6 +9,8 @@ import {
   ArrowRight,
   BarChart3,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   DollarSign,
   ExternalLink,
   HelpCircle,
@@ -1170,11 +1172,32 @@ function SectionCard({
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
+  const [expanded, setExpanded] = useState(false);
+  const Chevron = expanded ? ChevronDown : ChevronRight;
   return (
     <View style={[styles.sectionCard, { backgroundColor: palette.backgroundElevated, borderColor: palette.border }]}>
       <View style={styles.sectionHeader}>
-        <View style={[styles.sectionIcon, { backgroundColor: palette.accentMuted }]}>{icon}</View>
-        <ThemedText style={[TypeScale.bodyEmph, { color: palette.text, flex: 1 }]}>{title}</ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${title}`}
+          accessibilityHint="Shows or hides this card"
+          onPress={() => setExpanded((value) => !value)}
+          style={({ pressed }) => [
+            styles.sectionToggle,
+            { opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
+          <View style={[styles.sectionIcon, { backgroundColor: palette.accentMuted }]}>{icon}</View>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={[TypeScale.bodyEmph, { color: palette.text }]}>{title}</ThemedText>
+            {!expanded && (
+              <ThemedText style={[TypeScale.caption, { color: palette.textTertiary }]}>
+                Tap to expand
+              </ThemedText>
+            )}
+          </View>
+          <Chevron size={18} color={palette.textTertiary} strokeWidth={2.2} />
+        </Pressable>
         {onHelpPress && (
           <Pressable
             accessibilityRole="button"
@@ -1188,7 +1211,7 @@ function SectionCard({
           </Pressable>
         )}
       </View>
-      {children}
+      {expanded && children}
     </View>
   );
 }
@@ -1498,6 +1521,13 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  sectionToggle: {
+    flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
