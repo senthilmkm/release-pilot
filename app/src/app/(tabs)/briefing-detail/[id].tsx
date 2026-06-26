@@ -44,7 +44,9 @@ import {
 import { buildTodayReadout, type TodayReadout } from '@/lib/domain/today-readout';
 import {
   buildTodaySignals,
+  getSignalsForSection,
   getUnreadSignalSectionIds,
+  mergeSeenSignalIds,
   type TodaySignalSectionId,
 } from '@/lib/domain/today-signals';
 import type { ReviewSummary } from '@/lib/domain/review-feed';
@@ -87,7 +89,7 @@ export default function BriefingAppDetailScreen() {
   const [previousSnapshot] = useState(() => loadLastBriefingSnapshot());
   const [refreshing, setRefreshing] = useState(false);
   const [helpTopic, setHelpTopic] = useState<MomentumHelpTopic | null>(null);
-  const [seenSignalIdsAtOpen] = useState(() => (id ? getSeenTodaySignalIds(id) : []));
+  const [seenSignalIds, setSeenSignalIds] = useState(() => (id ? getSeenTodaySignalIds(id) : []));
   const hasRcConnected = Boolean(id && rcMeta[id]?.verified);
 
   const reviewsByAppId = useMemo(() => {
@@ -159,8 +161,8 @@ export default function BriefingAppDetailScreen() {
     [card, momentumQuery.data, subscriptionMomentumQuery.data],
   );
   const newSignalSections = useMemo(
-    () => new Set(getUnreadSignalSectionIds(todaySignals, seenSignalIdsAtOpen)),
-    [todaySignals, seenSignalIdsAtOpen],
+    () => new Set(getUnreadSignalSectionIds(todaySignals, seenSignalIds)),
+    [todaySignals, seenSignalIds],
   );
   const firstNewSignalSection = useMemo(
     () => NEW_SIGNAL_SECTION_PRIORITY.find((sectionId) => newSignalSections.has(sectionId)) ?? null,
@@ -171,10 +173,16 @@ export default function BriefingAppDetailScreen() {
     [newSignalSections],
   );
 
-  useEffect(() => {
-    if (!id || todaySignals.length === 0) return;
-    markTodaySignalsSeen(id, todaySignals);
-  }, [id, todaySignals]);
+  const markSectionSeen = useCallback(
+    (sectionId: TodaySignalSectionId) => {
+      if (!id) return;
+      const sectionSignals = getSignalsForSection(todaySignals, sectionId);
+      if (sectionSignals.length === 0) return;
+      setSeenSignalIds((prev) => mergeSeenSignalIds(prev, sectionSignals));
+      markTodaySignalsSeen(id, sectionSignals);
+    },
+    [id, todaySignals],
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -267,6 +275,7 @@ export default function BriefingAppDetailScreen() {
               card={card}
               hasNewSignal={sectionHasNewSignal('today-signal')}
               initiallyExpanded={firstNewSignalSection === 'today-signal'}
+              onNewSignalViewed={() => markSectionSeen('today-signal')}
             />
             <RevenueHealth card={card} hasRcConnected={hasRcConnected} />
             <RevenueTrend
@@ -279,6 +288,7 @@ export default function BriefingAppDetailScreen() {
               onOpenHelp={() => setHelpTopic('revenue')}
               hasNewSignal={sectionHasNewSignal('revenue-trend')}
               initiallyExpanded={firstNewSignalSection === 'revenue-trend'}
+              onNewSignalViewed={() => markSectionSeen('revenue-trend')}
             />
             <CustomerMomentum
               appName={card.appName}
@@ -290,6 +300,7 @@ export default function BriefingAppDetailScreen() {
               onOpenHelp={() => setHelpTopic('customers')}
               hasNewSignal={sectionHasNewSignal('customer-momentum')}
               initiallyExpanded={firstNewSignalSection === 'customer-momentum'}
+              onNewSignalViewed={() => markSectionSeen('customer-momentum')}
             />
             <SubscriptionMomentum
               appName={card.appName}
@@ -301,11 +312,13 @@ export default function BriefingAppDetailScreen() {
               onOpenHelp={() => setHelpTopic('subscriptions')}
               hasNewSignal={sectionHasNewSignal('subscription-momentum')}
               initiallyExpanded={firstNewSignalSection === 'subscription-momentum'}
+              onNewSignalViewed={() => markSectionSeen('subscription-momentum')}
             />
             <ReviewAttention
               card={card}
               hasNewSignal={sectionHasNewSignal('review-attention')}
               initiallyExpanded={firstNewSignalSection === 'review-attention'}
+              onNewSignalViewed={() => markSectionSeen('review-attention')}
             />
             <NextActions card={card} hasRcConnected={hasRcConnected} />
           </>
@@ -375,10 +388,12 @@ function TodaysSignal({
   card,
   hasNewSignal,
   initiallyExpanded,
+  onNewSignalViewed,
 }: {
   card: AppBriefingCard;
   hasNewSignal: boolean;
   initiallyExpanded: boolean;
+  onNewSignalViewed: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -389,6 +404,7 @@ function TodaysSignal({
       icon={<ArrowRight size={17} color={palette.accent} strokeWidth={2.3} />}
       hasNewSignal={hasNewSignal}
       initiallyExpanded={initiallyExpanded}
+      onNewSignalViewed={onNewSignalViewed}
     >
       {card.stateTransition ? (
         <View style={[styles.signalCallout, { backgroundColor: isRejected ? palette.destructiveMuted : palette.accentMuted }]}>
@@ -652,6 +668,7 @@ function RevenueTrend({
   onOpenHelp,
   hasNewSignal,
   initiallyExpanded,
+  onNewSignalViewed,
 }: {
   currency: string;
   hasRcConnected: boolean;
@@ -662,6 +679,7 @@ function RevenueTrend({
   onOpenHelp: () => void;
   hasNewSignal: boolean;
   initiallyExpanded: boolean;
+  onNewSignalViewed: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -674,6 +692,7 @@ function RevenueTrend({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to compare this app’s recent revenue against the previous 14 days.
@@ -690,6 +709,7 @@ function RevenueTrend({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <DollarSign size={18} color={palette.accent} strokeWidth={2.4} />
@@ -712,6 +732,7 @@ function RevenueTrend({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the revenue trend chart.
@@ -736,6 +757,7 @@ function RevenueTrend({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
@@ -758,6 +780,7 @@ function RevenueTrend({
       onHelpPress={onOpenHelp}
       hasNewSignal={hasNewSignal}
       initiallyExpanded={initiallyExpanded}
+      onNewSignalViewed={onNewSignalViewed}
     >
       <View style={styles.momentumSummary}>
         <MetricPill label="Last 14d" value={formatMoney(revenue.total, currency)} />
@@ -796,6 +819,7 @@ function CustomerMomentum({
   onOpenHelp,
   hasNewSignal,
   initiallyExpanded,
+  onNewSignalViewed,
 }: {
   appName: string;
   hasRcConnected: boolean;
@@ -806,6 +830,7 @@ function CustomerMomentum({
   onOpenHelp: () => void;
   hasNewSignal: boolean;
   initiallyExpanded: boolean;
+  onNewSignalViewed: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -818,6 +843,7 @@ function CustomerMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to see daily new customers for {appName}.
@@ -834,6 +860,7 @@ function CustomerMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <BarChart3 size={18} color={palette.accent} strokeWidth={2.4} />
@@ -856,6 +883,7 @@ function CustomerMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the 14-day customer chart.
@@ -880,6 +908,7 @@ function CustomerMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
@@ -901,6 +930,7 @@ function CustomerMomentum({
       onHelpPress={onOpenHelp}
       hasNewSignal={hasNewSignal}
       initiallyExpanded={initiallyExpanded}
+      onNewSignalViewed={onNewSignalViewed}
     >
       <View style={styles.momentumSummary}>
         <MetricPill label="14-day total" value={String(series.total)} />
@@ -957,6 +987,7 @@ function SubscriptionMomentum({
   onOpenHelp,
   hasNewSignal,
   initiallyExpanded,
+  onNewSignalViewed,
 }: {
   appName: string;
   hasRcConnected: boolean;
@@ -967,6 +998,7 @@ function SubscriptionMomentum({
   onOpenHelp: () => void;
   hasNewSignal: boolean;
   initiallyExpanded: boolean;
+  onNewSignalViewed: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -979,6 +1011,7 @@ function SubscriptionMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to see paid subscription and trial momentum for {appName}.
@@ -995,6 +1028,7 @@ function SubscriptionMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <TrendingUp size={18} color={palette.accent} strokeWidth={2.4} />
@@ -1017,6 +1051,7 @@ function SubscriptionMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the 14-day subscription chart.
@@ -1041,6 +1076,7 @@ function SubscriptionMomentum({
         onHelpPress={onOpenHelp}
         hasNewSignal={hasNewSignal}
         initiallyExpanded={initiallyExpanded}
+        onNewSignalViewed={onNewSignalViewed}
       >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
@@ -1059,6 +1095,7 @@ function SubscriptionMomentum({
       onHelpPress={onOpenHelp}
       hasNewSignal={hasNewSignal}
       initiallyExpanded={initiallyExpanded}
+      onNewSignalViewed={onNewSignalViewed}
     >
       <View style={styles.momentumSummary}>
         <MetricPill label="New paid subs" value={String(momentum.newPaidSubscriptions.total)} />
@@ -1094,10 +1131,12 @@ function ReviewAttention({
   card,
   hasNewSignal,
   initiallyExpanded,
+  onNewSignalViewed,
 }: {
   card: AppBriefingCard;
   hasNewSignal: boolean;
   initiallyExpanded: boolean;
+  onNewSignalViewed: () => void;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -1116,6 +1155,7 @@ function ReviewAttention({
       icon={<MessageSquare size={17} color={palette.accent} strokeWidth={2.3} />}
       hasNewSignal={hasNewSignal}
       initiallyExpanded={initiallyExpanded}
+      onNewSignalViewed={onNewSignalViewed}
     >
       <ThemedText style={[TypeScale.body, { color: palette.text }]}>
         {card.newReviewsCount === 0
@@ -1289,6 +1329,7 @@ function SectionCard({
   onHelpPress,
   hasNewSignal = false,
   initiallyExpanded = false,
+  onNewSignalViewed,
   children,
 }: {
   title: string;
@@ -1296,6 +1337,7 @@ function SectionCard({
   onHelpPress?: () => void;
   hasNewSignal?: boolean;
   initiallyExpanded?: boolean;
+  onNewSignalViewed?: () => void;
   children: React.ReactNode;
 }) {
   const scheme = useResolvedScheme();
@@ -1308,7 +1350,14 @@ function SectionCard({
     if (!hasNewSignal || !initiallyExpanded || didAutoExpand.current) return;
     didAutoExpand.current = true;
     setExpanded(true);
-  }, [hasNewSignal, initiallyExpanded]);
+    onNewSignalViewed?.();
+  }, [hasNewSignal, initiallyExpanded, onNewSignalViewed]);
+
+  const toggleExpanded = () => {
+    const next = !expanded;
+    if (next && hasNewSignal) onNewSignalViewed?.();
+    setExpanded(next);
+  };
 
   return (
     <View style={[styles.sectionCard, { backgroundColor: palette.backgroundElevated, borderColor: palette.border }]}>
@@ -1317,7 +1366,7 @@ function SectionCard({
           accessibilityRole="button"
           accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${title}`}
           accessibilityHint="Shows or hides this card"
-          onPress={() => setExpanded((value) => !value)}
+          onPress={toggleExpanded}
           style={({ pressed }) => [
             styles.sectionToggle,
             { opacity: pressed ? 0.75 : 1 },

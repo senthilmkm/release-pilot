@@ -118,6 +118,13 @@ export function getUnreadSignalSectionIds(
   return [...sections];
 }
 
+export function getSignalsForSection(
+  signals: TodaySignal[],
+  sectionId: TodaySignalSectionId,
+): TodaySignal[] {
+  return signals.filter((signal) => signal.sectionId === sectionId);
+}
+
 export function mergeSeenSignalIds(
   previous: readonly string[],
   signals: TodaySignal[],

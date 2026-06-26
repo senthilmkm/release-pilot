@@ -1,5 +1,6 @@
 import {
   buildTodaySignals,
+  getSignalsForSection,
   getUnreadSignalSectionIds,
   hasUnreadTodaySignals,
   mergeSeenSignalIds,
@@ -161,6 +162,10 @@ function card(overrides: Partial<AppBriefingCard> = {}): AppBriefingCard {
   });
   const unread = getUnreadSignalSectionIds(signals, [signals[0]?.id ?? '']);
   ok('signals: unread section ids exclude seen signals', unread.length === 1 && unread[0] === 'review-attention');
+  ok(
+    'signals: section filter returns only matching signals',
+    getSignalsForSection(signals, 'review-attention').every((signal) => signal.sectionId === 'review-attention'),
+  );
 }
 
 {
