@@ -44,6 +44,7 @@ import {
 import { buildTodayReadout, type TodayReadout } from '@/lib/domain/today-readout';
 import {
   buildTodaySignals,
+  countAppsWithUnreadUrgentSignals,
   getSignalsForSection,
   getUnreadSignalSectionIds,
   mergeSeenSignalIds,
@@ -55,8 +56,9 @@ import type {
   RevenueCatDailySeries,
   RevenueCatSubscriptionMomentum,
 } from '@/lib/api/revenuecat-types';
+import { syncUrgentSignalBadgeCount } from '@/lib/push/app-icon-badge';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
-import { getSeenTodaySignalIds, markTodaySignalsSeen } from '@/lib/state/today-signal-views';
+import { getSeenTodaySignalIds, loadTodaySignalViews, markTodaySignalsSeen } from '@/lib/state/today-signal-views';
 
 type MomentumHelpTopic = 'customers' | 'subscriptions' | 'revenue';
 const REVENUECAT_DASHBOARD_URL = 'https://app.revenuecat.com';
@@ -107,7 +109,7 @@ export default function BriefingAppDetailScreen() {
     [apps],
   );
 
-  const card = useMemo(() => {
+  const briefingCards = useMemo(() => {
     const { briefing } = buildBriefing({
       apps: appsForBriefing,
       statesByAppId: statesQuery.byAppId,
@@ -116,7 +118,7 @@ export default function BriefingAppDetailScreen() {
       previousSnapshot,
       nowMs,
     });
-    return briefing.cards.find((c) => c.ascAppId === id) ?? null;
+    return briefing.cards;
   }, [
     appsForBriefing,
     statesQuery.byAppId,
@@ -124,8 +126,11 @@ export default function BriefingAppDetailScreen() {
     rcQuery.byAppId,
     previousSnapshot,
     nowMs,
-    id,
   ]);
+  const card = useMemo(
+    () => briefingCards.find((c) => c.ascAppId === id) ?? null,
+    [briefingCards, id],
+  );
   const readout = useMemo(
     () =>
       card
@@ -180,8 +185,11 @@ export default function BriefingAppDetailScreen() {
       if (sectionSignals.length === 0) return;
       setSeenSignalIds((prev) => mergeSeenSignalIds(prev, sectionSignals));
       markTodaySignalsSeen(id, sectionSignals);
+      void syncUrgentSignalBadgeCount(
+        countAppsWithUnreadUrgentSignals(briefingCards, loadTodaySignalViews()),
+      );
     },
-    [id, todaySignals],
+    [briefingCards, id, todaySignals],
   );
 
   const onRefresh = useCallback(async () => {

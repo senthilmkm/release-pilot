@@ -1,8 +1,10 @@
 import {
   buildTodaySignals,
+  countAppsWithUnreadUrgentSignals,
   getSignalsForSection,
   getUnreadSignalSectionIds,
   hasUnreadTodaySignals,
+  hasUnreadUrgentTodaySignals,
   mergeSeenSignalIds,
 } from './today-signals';
 import type { AppBriefingCard } from './briefing';
@@ -90,6 +92,18 @@ function card(overrides: Partial<AppBriefingCard> = {}): AppBriefingCard {
   });
   ok('signals: release transition maps to Today signal section', signals[0]?.sectionId === 'today-signal');
   ok('signals: transition id includes state and version', signals[0]?.id === 'state:submitted:in_review:v1.2 (8)');
+  ok('signals: non-rejected release transition is normal urgency', signals[0]?.urgency === 'normal');
+}
+
+{
+  const signals = buildTodaySignals({
+    card: card({
+      currentState: 'rejected',
+      stateTransition: { from: 'in_review', to: 'rejected' },
+      currentVersionLabel: 'v1.2 (8)',
+    }),
+  });
+  ok('signals: rejected release transition is urgent', signals[0]?.urgency === 'urgent');
 }
 
 {
@@ -102,6 +116,7 @@ function card(overrides: Partial<AppBriefingCard> = {}): AppBriefingCard {
   });
   ok('signals: low-rating reviews map to review section', signals[0]?.sectionId === 'review-attention');
   ok('signals: low-rating id is count-specific', signals[0]?.id === 'reviews-low:2:1:1');
+  ok('signals: low-rating review signal is urgent', signals[0]?.urgency === 'urgent');
 }
 
 {
@@ -116,6 +131,7 @@ function card(overrides: Partial<AppBriefingCard> = {}): AppBriefingCard {
   });
   ok('signals: revenue drop maps to revenue trend', signals[0]?.sectionId === 'revenue-trend');
   ok('signals: revenue drop id is stable cents', signals[0]?.id === 'revenue-drop:8000:-6000');
+  ok('signals: revenue drop is urgent when trend data is present', signals[0]?.urgency === 'urgent');
 }
 
 {
@@ -150,6 +166,7 @@ function card(overrides: Partial<AppBriefingCard> = {}): AppBriefingCard {
   });
   ok('signals: unread when id not seen', hasUnreadTodaySignals(signals, []) === true);
   ok('signals: read when same id seen', hasUnreadTodaySignals(signals, [signals[0]?.id ?? '']) === false);
+  ok('signals: normal unread signal is not urgent', hasUnreadUrgentTodaySignals(signals, []) === false);
 }
 
 {
@@ -176,6 +193,46 @@ function card(overrides: Partial<AppBriefingCard> = {}): AppBriefingCard {
   ok('signals: merge keeps old and new ids', merged.length === 2 && merged[0] === 'old');
   const capped = mergeSeenSignalIds(['a', 'b'], signals, 2);
   ok('signals: merge caps old ids', capped.length === 2 && capped[0] === 'b');
+}
+
+{
+  const rejected = card({
+    ascAppId: 'app-1',
+    currentState: 'rejected',
+    stateTransition: { from: 'in_review', to: 'rejected' },
+  });
+  const lowReview = card({
+    ascAppId: 'app-2',
+    newReviewsCount: 2,
+    unrepliedLowRatingCount: 1,
+    newReviewsByRating: { oneStar: 1, twoStar: 0, threeStar: 0, fourStar: 0, fiveStar: 1 },
+  });
+  const normal = card({
+    ascAppId: 'app-3',
+    newReviewsCount: 1,
+    newReviewsByRating: { oneStar: 0, twoStar: 0, threeStar: 0, fourStar: 0, fiveStar: 1 },
+  });
+  ok(
+    'signals: urgent app count ignores normal-only signals',
+    countAppsWithUnreadUrgentSignals([rejected, lowReview, normal], {}) === 2,
+  );
+  const seenRejected = buildTodaySignals({ card: rejected }).map((signal) => signal.id);
+  ok(
+    'signals: urgent app count excludes seen urgent signals',
+    countAppsWithUnreadUrgentSignals([rejected, lowReview], { 'app-1': seenRejected }) === 1,
+  );
+  const duplicateUrgent = card({
+    ascAppId: 'app-4',
+    currentState: 'rejected',
+    stateTransition: { from: 'in_review', to: 'rejected' },
+    newReviewsCount: 2,
+    unrepliedLowRatingCount: 1,
+    newReviewsByRating: { oneStar: 1, twoStar: 0, threeStar: 0, fourStar: 0, fiveStar: 1 },
+  });
+  ok(
+    'signals: urgent app count counts apps not number of signals',
+    countAppsWithUnreadUrgentSignals([duplicateUrgent], {}) === 1,
+  );
 }
 
 const passed = tests.filter((t) => t.pass).length;

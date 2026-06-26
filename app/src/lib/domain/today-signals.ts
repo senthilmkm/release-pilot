@@ -14,6 +14,7 @@ export type TodaySignalSectionId =
 export type TodaySignal = {
   id: string;
   sectionId: TodaySignalSectionId;
+  urgency: 'urgent' | 'normal';
 };
 
 export type TodaySignalsInput = {
@@ -38,6 +39,7 @@ export function buildTodaySignals({
         card.currentVersionLabel ?? 'unknown-version',
       ].join(':'),
       sectionId: 'today-signal',
+      urgency: card.currentState === 'rejected' ? 'urgent' : 'normal',
     });
   }
 
@@ -50,6 +52,7 @@ export function buildTodaySignals({
         card.newReviewsByRating.twoStar,
       ].join(':'),
       sectionId: 'review-attention',
+      urgency: 'urgent',
     });
   } else if (card.newReviewsCount > 0) {
     signals.push({
@@ -63,6 +66,7 @@ export function buildTodaySignals({
         card.newReviewsByRating.fiveStar,
       ].join(':'),
       sectionId: 'review-attention',
+      urgency: 'normal',
     });
   }
 
@@ -72,11 +76,13 @@ export function buildTodaySignals({
       signals.push({
         id: `revenue-drop:${stableAmount(revenue.trend.previousTotal)}:${stableAmount(revenue.trend.delta)}`,
         sectionId: 'revenue-trend',
+        urgency: 'urgent',
       });
     } else if (revenue.trend.previousTotal === 0 && revenue.total > 0) {
       signals.push({
         id: `revenue-started:${stableAmount(revenue.total)}`,
         sectionId: 'revenue-trend',
+        urgency: 'normal',
       });
     }
   }
@@ -86,6 +92,7 @@ export function buildTodaySignals({
     signals.push({
       id: `customers-new:${newCustomers}:${customerMomentum?.customers.bestDay?.date ?? 'no-best-day'}`,
       sectionId: 'customer-momentum',
+      urgency: 'normal',
     });
   }
 
@@ -95,6 +102,7 @@ export function buildTodaySignals({
     signals.push({
       id: `subscriptions-new:${paid}:${trials}`,
       sectionId: 'subscription-momentum',
+      urgency: 'normal',
     });
   }
 
@@ -104,6 +112,23 @@ export function buildTodaySignals({
 export function hasUnreadTodaySignals(signals: TodaySignal[], seenSignalIds: readonly string[]): boolean {
   const seen = new Set(seenSignalIds);
   return signals.some((signal) => !seen.has(signal.id));
+}
+
+export function hasUnreadUrgentTodaySignals(signals: TodaySignal[], seenSignalIds: readonly string[]): boolean {
+  const seen = new Set(seenSignalIds);
+  return signals.some((signal) => signal.urgency === 'urgent' && !seen.has(signal.id));
+}
+
+export function countAppsWithUnreadUrgentSignals(
+  cards: AppBriefingCard[],
+  seenSignalsByAppId: Record<string, readonly string[]>,
+): number {
+  return cards.reduce((count, card) => {
+    const signals = buildTodaySignals({ card });
+    return hasUnreadUrgentTodaySignals(signals, seenSignalsByAppId[card.ascAppId] ?? [])
+      ? count + 1
+      : count;
+  }, 0);
 }
 
 export function getUnreadSignalSectionIds(

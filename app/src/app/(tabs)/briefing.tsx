@@ -36,13 +36,18 @@ import {
   type AppBriefingCard,
   type Briefing,
 } from '@/lib/domain/briefing';
-import { buildTodaySignals, hasUnreadTodaySignals } from '@/lib/domain/today-signals';
+import {
+  buildTodaySignals,
+  countAppsWithUnreadUrgentSignals,
+  hasUnreadTodaySignals,
+} from '@/lib/domain/today-signals';
 import {
   isSnapshotStaleForToday,
   loadLastBriefingSnapshot,
   saveBriefingSnapshot,
 } from '@/lib/domain/briefing-snapshot-store';
 import type { ReviewSummary } from '@/lib/domain/review-feed';
+import { syncUrgentSignalBadgeCount } from '@/lib/push/app-icon-badge';
 import { loadTodaySignalViews } from '@/lib/state/today-signal-views';
 import { StateBadge } from '@/components/state-badge';
 import { MetricsHelpModal } from '@/features/briefing/metrics-help-modal';
@@ -157,6 +162,17 @@ export default function BriefingTab() {
       saveBriefingSnapshot(nextSnapshot);
     }
   }, [baselineStale, nextSnapshot]);
+
+  const urgentUnreadSignalAppCount = useMemo(
+    () => countAppsWithUnreadUrgentSignals(briefing.cards, seenSignalsByAppId),
+    [briefing.cards, seenSignalsByAppId],
+  );
+  const badgeDataReady = !appsQuery.isLoading && !statesQuery.isLoading && !reviewsQuery.isLoading;
+
+  useEffect(() => {
+    if (!badgeDataReady) return;
+    void syncUrgentSignalBadgeCount(urgentUnreadSignalAppCount);
+  }, [badgeDataReady, urgentUnreadSignalAppCount]);
 
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = async () => {
