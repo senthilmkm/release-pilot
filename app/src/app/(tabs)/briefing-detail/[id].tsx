@@ -287,7 +287,7 @@ function Header({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back to Today"
-        onPress={() => router.back()}
+        onPress={() => router.replace('/(tabs)/briefing')}
         hitSlop={12}
         style={styles.backButton}
       >
