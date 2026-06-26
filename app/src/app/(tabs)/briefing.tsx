@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import {
   AlertTriangle,
@@ -36,12 +36,14 @@ import {
   type AppBriefingCard,
   type Briefing,
 } from '@/lib/domain/briefing';
+import { buildTodaySignals, hasUnreadTodaySignals } from '@/lib/domain/today-signals';
 import {
   isSnapshotStaleForToday,
   loadLastBriefingSnapshot,
   saveBriefingSnapshot,
 } from '@/lib/domain/briefing-snapshot-store';
 import type { ReviewSummary } from '@/lib/domain/review-feed';
+import { loadTodaySignalViews } from '@/lib/state/today-signal-views';
 import { StateBadge } from '@/components/state-badge';
 import { MetricsHelpModal } from '@/features/briefing/metrics-help-modal';
 
@@ -76,6 +78,13 @@ export default function BriefingTab() {
   const reviewsQuery = useAllReviewsQuery({ apps });
   const rcQuery = useRevenueOverviewsQuery();
   const rcMeta = useAppRevenueCatStore((s) => s.byAscAppId);
+  const [seenSignalsByAppId, setSeenSignalsByAppId] = useState(() => loadTodaySignalViews());
+
+  useFocusEffect(
+    useCallback(() => {
+      setSeenSignalsByAppId(loadTodaySignalViews());
+    }, []),
+  );
 
   // Capture the "now" timestamp once at mount. `useState` with a lazy
   // initializer is the canonical way to do this — `Date.now()` runs
@@ -271,19 +280,26 @@ export default function BriefingTab() {
         {briefing.cards.length === 0 ? (
           <EmptyState />
         ) : (
-          briefing.cards.map((card) => (
-            <AppCard
-              key={card.ascAppId}
-              card={card}
-              hasRcConnected={Boolean(rcMeta[card.ascAppId]?.verified)}
-              revenueLoading={
-                Boolean(rcMeta[card.ascAppId]?.verified) &&
-                !rcQuery.byAppId.has(card.ascAppId) &&
-                (rcQuery.isLoading || rcQuery.isFetching)
-              }
-              onOpenMetricsHelp={openMetricsHelp}
-            />
-          ))
+          briefing.cards.map((card) => {
+            const hasRcConnected = Boolean(rcMeta[card.ascAppId]?.verified);
+            return (
+              <AppCard
+                key={card.ascAppId}
+                card={card}
+                hasRcConnected={hasRcConnected}
+                hasUnreadSignal={hasUnreadTodaySignals(
+                  buildTodaySignals({ card }),
+                  seenSignalsByAppId[card.ascAppId] ?? [],
+                )}
+                revenueLoading={
+                  hasRcConnected &&
+                  !rcQuery.byAppId.has(card.ascAppId) &&
+                  (rcQuery.isLoading || rcQuery.isFetching)
+                }
+                onOpenMetricsHelp={openMetricsHelp}
+              />
+            );
+          })
         )}
 
         {rcQuery.errors.length > 0 && (
@@ -614,11 +630,13 @@ function HeroStat({ icon, value, label }: { icon: React.ReactNode; value: string
 function AppCard({
   card,
   hasRcConnected,
+  hasUnreadSignal,
   revenueLoading,
   onOpenMetricsHelp,
 }: {
   card: AppBriefingCard;
   hasRcConnected: boolean;
+  hasUnreadSignal: boolean;
   revenueLoading: boolean;
   onOpenMetricsHelp: () => void;
 }) {
@@ -643,8 +661,8 @@ function AppCard({
       accessibilityRole="button"
       accessibilityLabel={
         locked
-          ? `${card.appName} — Pro only, opens paywall`
-          : `${card.appName} — open details`
+          ? `${card.appName}${hasUnreadSignal ? ', new signal' : ''} — Pro only, opens paywall`
+          : `${card.appName}${hasUnreadSignal ? ', new signal' : ''} — open details`
       }
       onPress={handlePress}
       style={({ pressed }) => [
@@ -665,6 +683,7 @@ function AppCard({
             >
               {card.appName}
             </ThemedText>
+            {hasUnreadSignal && <NewSignalBadge palette={palette} />}
             {locked && <ProInlineBadge palette={palette} />}
           </View>
           {card.currentVersionLabel && (
@@ -800,6 +819,17 @@ function AppCard({
         </ThemedText>
       )}
     </Pressable>
+  );
+}
+
+function NewSignalBadge({ palette }: { palette: typeof Colors.light | typeof Colors.dark }) {
+  return (
+    <View style={[styles.newSignalBadge, { backgroundColor: palette.accentMuted }]}>
+      <View style={[styles.newSignalDot, { backgroundColor: palette.accent }]} />
+      <ThemedText style={[styles.newSignalText, { color: palette.accent }]}>
+        New signal
+      </ThemedText>
+    </View>
   );
 }
 
@@ -1013,6 +1043,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  newSignalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  newSignalDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  newSignalText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   proInlineBadge: {
     paddingHorizontal: 6,

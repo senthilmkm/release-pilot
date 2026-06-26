@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +42,11 @@ import {
   type TodayActionKind,
 } from '@/lib/domain/today-action-queue';
 import { buildTodayReadout, type TodayReadout } from '@/lib/domain/today-readout';
+import {
+  buildTodaySignals,
+  getUnreadSignalSectionIds,
+  type TodaySignalSectionId,
+} from '@/lib/domain/today-signals';
 import type { ReviewSummary } from '@/lib/domain/review-feed';
 import type {
   RevenueCatCustomerMomentum,
@@ -49,9 +54,17 @@ import type {
   RevenueCatSubscriptionMomentum,
 } from '@/lib/api/revenuecat-types';
 import { useAppRevenueCatStore } from '@/lib/state/app-revenuecat';
+import { getSeenTodaySignalIds, markTodaySignalsSeen } from '@/lib/state/today-signal-views';
 
 type MomentumHelpTopic = 'customers' | 'subscriptions' | 'revenue';
 const REVENUECAT_DASHBOARD_URL = 'https://app.revenuecat.com';
+const NEW_SIGNAL_SECTION_PRIORITY: TodaySignalSectionId[] = [
+  'today-signal',
+  'review-attention',
+  'revenue-trend',
+  'customer-momentum',
+  'subscription-momentum',
+];
 
 export default function BriefingAppDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,6 +87,7 @@ export default function BriefingAppDetailScreen() {
   const [previousSnapshot] = useState(() => loadLastBriefingSnapshot());
   const [refreshing, setRefreshing] = useState(false);
   const [helpTopic, setHelpTopic] = useState<MomentumHelpTopic | null>(null);
+  const [seenSignalIdsAtOpen] = useState(() => (id ? getSeenTodaySignalIds(id) : []));
   const hasRcConnected = Boolean(id && rcMeta[id]?.verified);
 
   const reviewsByAppId = useMemo(() => {
@@ -133,6 +147,34 @@ export default function BriefingAppDetailScreen() {
         : [],
     [card, hasRcConnected, momentumQuery.data, subscriptionMomentumQuery.data],
   );
+  const todaySignals = useMemo(
+    () =>
+      card
+        ? buildTodaySignals({
+            card,
+            customerMomentum: momentumQuery.data,
+            subscriptionMomentum: subscriptionMomentumQuery.data,
+          })
+        : [],
+    [card, momentumQuery.data, subscriptionMomentumQuery.data],
+  );
+  const newSignalSections = useMemo(
+    () => new Set(getUnreadSignalSectionIds(todaySignals, seenSignalIdsAtOpen)),
+    [todaySignals, seenSignalIdsAtOpen],
+  );
+  const firstNewSignalSection = useMemo(
+    () => NEW_SIGNAL_SECTION_PRIORITY.find((sectionId) => newSignalSections.has(sectionId)) ?? null,
+    [newSignalSections],
+  );
+  const sectionHasNewSignal = useCallback(
+    (sectionId: TodaySignalSectionId) => newSignalSections.has(sectionId),
+    [newSignalSections],
+  );
+
+  useEffect(() => {
+    if (!id || todaySignals.length === 0) return;
+    markTodaySignalsSeen(id, todaySignals);
+  }, [id, todaySignals]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -221,7 +263,11 @@ export default function BriefingAppDetailScreen() {
               actions={actionQueue}
               card={card}
             />
-            <TodaysSignal card={card} />
+            <TodaysSignal
+              card={card}
+              hasNewSignal={sectionHasNewSignal('today-signal')}
+              initiallyExpanded={firstNewSignalSection === 'today-signal'}
+            />
             <RevenueHealth card={card} hasRcConnected={hasRcConnected} />
             <RevenueTrend
               currency={card.revenue.connected ? card.revenue.currency : 'USD'}
@@ -231,6 +277,8 @@ export default function BriefingAppDetailScreen() {
               errorKind={subscriptionMomentumQuery.errorKind}
               onRetry={subscriptionMomentumQuery.refetch}
               onOpenHelp={() => setHelpTopic('revenue')}
+              hasNewSignal={sectionHasNewSignal('revenue-trend')}
+              initiallyExpanded={firstNewSignalSection === 'revenue-trend'}
             />
             <CustomerMomentum
               appName={card.appName}
@@ -240,6 +288,8 @@ export default function BriefingAppDetailScreen() {
               errorKind={momentumQuery.errorKind}
               onRetry={momentumQuery.refetch}
               onOpenHelp={() => setHelpTopic('customers')}
+              hasNewSignal={sectionHasNewSignal('customer-momentum')}
+              initiallyExpanded={firstNewSignalSection === 'customer-momentum'}
             />
             <SubscriptionMomentum
               appName={card.appName}
@@ -249,8 +299,14 @@ export default function BriefingAppDetailScreen() {
               errorKind={subscriptionMomentumQuery.errorKind}
               onRetry={subscriptionMomentumQuery.refetch}
               onOpenHelp={() => setHelpTopic('subscriptions')}
+              hasNewSignal={sectionHasNewSignal('subscription-momentum')}
+              initiallyExpanded={firstNewSignalSection === 'subscription-momentum'}
             />
-            <ReviewAttention card={card} />
+            <ReviewAttention
+              card={card}
+              hasNewSignal={sectionHasNewSignal('review-attention')}
+              initiallyExpanded={firstNewSignalSection === 'review-attention'}
+            />
             <NextActions card={card} hasRcConnected={hasRcConnected} />
           </>
         ) : (
@@ -315,12 +371,25 @@ function Header({
   );
 }
 
-function TodaysSignal({ card }: { card: AppBriefingCard }) {
+function TodaysSignal({
+  card,
+  hasNewSignal,
+  initiallyExpanded,
+}: {
+  card: AppBriefingCard;
+  hasNewSignal: boolean;
+  initiallyExpanded: boolean;
+}) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
   const isRejected = card.currentState === 'rejected';
   return (
-    <SectionCard title="Today’s Signal" icon={<ArrowRight size={17} color={palette.accent} strokeWidth={2.3} />}>
+    <SectionCard
+      title="Today’s Signal"
+      icon={<ArrowRight size={17} color={palette.accent} strokeWidth={2.3} />}
+      hasNewSignal={hasNewSignal}
+      initiallyExpanded={initiallyExpanded}
+    >
       {card.stateTransition ? (
         <View style={[styles.signalCallout, { backgroundColor: isRejected ? palette.destructiveMuted : palette.accentMuted }]}>
           {isRejected ? (
@@ -581,6 +650,8 @@ function RevenueTrend({
   errorKind,
   onRetry,
   onOpenHelp,
+  hasNewSignal,
+  initiallyExpanded,
 }: {
   currency: string;
   hasRcConnected: boolean;
@@ -589,6 +660,8 @@ function RevenueTrend({
   errorKind: string | null;
   onRetry: () => void;
   onOpenHelp: () => void;
+  hasNewSignal: boolean;
+  initiallyExpanded: boolean;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -599,6 +672,8 @@ function RevenueTrend({
         title="Revenue Trend"
         icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to compare this app’s recent revenue against the previous 14 days.
@@ -613,6 +688,8 @@ function RevenueTrend({
         title="Revenue Trend"
         icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <DollarSign size={18} color={palette.accent} strokeWidth={2.4} />
@@ -633,6 +710,8 @@ function RevenueTrend({
         title="Revenue Trend"
         icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the revenue trend chart.
@@ -655,6 +734,8 @@ function RevenueTrend({
         title="Revenue Trend"
         icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
@@ -675,6 +756,8 @@ function RevenueTrend({
       title="Revenue Trend"
       icon={<DollarSign size={17} color={palette.accent} strokeWidth={2.3} />}
       onHelpPress={onOpenHelp}
+      hasNewSignal={hasNewSignal}
+      initiallyExpanded={initiallyExpanded}
     >
       <View style={styles.momentumSummary}>
         <MetricPill label="Last 14d" value={formatMoney(revenue.total, currency)} />
@@ -711,6 +794,8 @@ function CustomerMomentum({
   errorKind,
   onRetry,
   onOpenHelp,
+  hasNewSignal,
+  initiallyExpanded,
 }: {
   appName: string;
   hasRcConnected: boolean;
@@ -719,6 +804,8 @@ function CustomerMomentum({
   errorKind: string | null;
   onRetry: () => void;
   onOpenHelp: () => void;
+  hasNewSignal: boolean;
+  initiallyExpanded: boolean;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -729,6 +816,8 @@ function CustomerMomentum({
         title="Customer Momentum"
         icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to see daily new customers for {appName}.
@@ -743,6 +832,8 @@ function CustomerMomentum({
         title="Customer Momentum"
         icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <BarChart3 size={18} color={palette.accent} strokeWidth={2.4} />
@@ -763,6 +854,8 @@ function CustomerMomentum({
         title="Customer Momentum"
         icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the 14-day customer chart.
@@ -785,6 +878,8 @@ function CustomerMomentum({
         title="Customer Momentum"
         icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
@@ -804,6 +899,8 @@ function CustomerMomentum({
       title="Customer Momentum"
       icon={<BarChart3 size={17} color={palette.accent} strokeWidth={2.3} />}
       onHelpPress={onOpenHelp}
+      hasNewSignal={hasNewSignal}
+      initiallyExpanded={initiallyExpanded}
     >
       <View style={styles.momentumSummary}>
         <MetricPill label="14-day total" value={String(series.total)} />
@@ -858,6 +955,8 @@ function SubscriptionMomentum({
   errorKind,
   onRetry,
   onOpenHelp,
+  hasNewSignal,
+  initiallyExpanded,
 }: {
   appName: string;
   hasRcConnected: boolean;
@@ -866,6 +965,8 @@ function SubscriptionMomentum({
   errorKind: string | null;
   onRetry: () => void;
   onOpenHelp: () => void;
+  hasNewSignal: boolean;
+  initiallyExpanded: boolean;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
@@ -876,6 +977,8 @@ function SubscriptionMomentum({
         title="Subscription Momentum"
         icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Connect RevenueCat to see paid subscription and trial momentum for {appName}.
@@ -890,6 +993,8 @@ function SubscriptionMomentum({
         title="Subscription Momentum"
         icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <View style={[styles.signalCallout, { backgroundColor: palette.accentMuted }]}>
           <TrendingUp size={18} color={palette.accent} strokeWidth={2.4} />
@@ -910,6 +1015,8 @@ function SubscriptionMomentum({
         title="Subscription Momentum"
         icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <ThemedText style={[TypeScale.body, { color: palette.text }]}>
           Couldn’t load the 14-day subscription chart.
@@ -932,6 +1039,8 @@ function SubscriptionMomentum({
         title="Subscription Momentum"
         icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
         onHelpPress={onOpenHelp}
+        hasNewSignal={hasNewSignal}
+        initiallyExpanded={initiallyExpanded}
       >
         <View style={styles.inlineLoading}>
           <ActivityIndicator color={palette.accent} />
@@ -948,6 +1057,8 @@ function SubscriptionMomentum({
       title="Subscription Momentum"
       icon={<TrendingUp size={17} color={palette.accent} strokeWidth={2.3} />}
       onHelpPress={onOpenHelp}
+      hasNewSignal={hasNewSignal}
+      initiallyExpanded={initiallyExpanded}
     >
       <View style={styles.momentumSummary}>
         <MetricPill label="New paid subs" value={String(momentum.newPaidSubscriptions.total)} />
@@ -979,7 +1090,15 @@ function SubscriptionMomentum({
   );
 }
 
-function ReviewAttention({ card }: { card: AppBriefingCard }) {
+function ReviewAttention({
+  card,
+  hasNewSignal,
+  initiallyExpanded,
+}: {
+  card: AppBriefingCard;
+  hasNewSignal: boolean;
+  initiallyExpanded: boolean;
+}) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
   const buckets = [
@@ -992,7 +1111,12 @@ function ReviewAttention({ card }: { card: AppBriefingCard }) {
   const max = Math.max(...buckets.map((b) => b.value), 1);
 
   return (
-    <SectionCard title="Review Attention" icon={<MessageSquare size={17} color={palette.accent} strokeWidth={2.3} />}>
+    <SectionCard
+      title="Review Attention"
+      icon={<MessageSquare size={17} color={palette.accent} strokeWidth={2.3} />}
+      hasNewSignal={hasNewSignal}
+      initiallyExpanded={initiallyExpanded}
+    >
       <ThemedText style={[TypeScale.body, { color: palette.text }]}>
         {card.newReviewsCount === 0
           ? 'No new reviews in the current briefing window.'
@@ -1163,17 +1287,29 @@ function SectionCard({
   title,
   icon,
   onHelpPress,
+  hasNewSignal = false,
+  initiallyExpanded = false,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   onHelpPress?: () => void;
+  hasNewSignal?: boolean;
+  initiallyExpanded?: boolean;
   children: React.ReactNode;
 }) {
   const scheme = useResolvedScheme();
   const palette = Colors[scheme];
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(() => hasNewSignal && initiallyExpanded);
+  const didAutoExpand = useRef(false);
   const Chevron = expanded ? ChevronDown : ChevronRight;
+
+  useEffect(() => {
+    if (!hasNewSignal || !initiallyExpanded || didAutoExpand.current) return;
+    didAutoExpand.current = true;
+    setExpanded(true);
+  }, [hasNewSignal, initiallyExpanded]);
+
   return (
     <View style={[styles.sectionCard, { backgroundColor: palette.backgroundElevated, borderColor: palette.border }]}>
       <View style={styles.sectionHeader}>
@@ -1196,6 +1332,7 @@ function SectionCard({
               </ThemedText>
             )}
           </View>
+          {hasNewSignal && <SectionNewBadge />}
           <Chevron size={18} color={palette.textTertiary} strokeWidth={2.2} />
         </Pressable>
         {onHelpPress && (
@@ -1212,6 +1349,16 @@ function SectionCard({
         )}
       </View>
       {expanded && children}
+    </View>
+  );
+}
+
+function SectionNewBadge() {
+  const scheme = useResolvedScheme();
+  const palette = Colors[scheme];
+  return (
+    <View style={[styles.sectionNewBadge, { backgroundColor: palette.accentMuted }]}>
+      <ThemedText style={[styles.sectionNewBadgeText, { color: palette.accent }]}>NEW</ThemedText>
     </View>
   );
 }
@@ -1531,6 +1678,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  sectionNewBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  sectionNewBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   sectionIcon: {
     width: 30,
